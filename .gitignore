@@ -1,0 +1,144 @@
+# --- General ---
+# Ignore OS-generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Ignore Editor/IDE specific files
+# VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.history/
+
+# JetBrains (WebStorm, IntelliJ IDEA, etc.)
+.idea/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+.#*
+
+# Atom
+.atom/
+
+# --- Node.js / pnpm ---
+# Ignore node_modules directories anywhere in the project
+# This is crucial for monorepos using pnpm, yarn workspaces, or npm workspaces
+node_modules/
+
+# Ignore pnpm virtual store if created locally (though usually outside project)
+# .pnpm-store/
+
+# Ignore package manager lock files (except the one you use)
+# Keep pnpm-lock.yaml!
+# package-lock.json
+# yarn.lock
+
+# Ignore log files
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Ignore environment variable files
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Ignore temporary files and runtime data
+*.pid
+*.seed
+*.pid.lock
+
+# --- TypeScript ---
+# Ignore compiled TypeScript files (if outputting next to source - prefer dedicated build dirs)
+# *.js
+# *.js.map
+# *.d.ts
+
+# Ignore TypeScript build info cache file
+*.tsbuildinfo
+
+# --- Build Outputs ---
+# Ignore common build output directories (applies recursively in monorepo)
+dist/
+build/
+out/
+public/build/ # Common for Remix or similar frameworks if used alongside React
+.next/ # If Next.js is used in any package
+.nuxt/ # If Nuxt.js is used in any package
+.svelte-kit/ # If SvelteKit is used in any package
+
+# --- Frontend (React / Vite) ---
+# Vite specific cache
+# node_modules/.vite is covered by node_modules/
+# .vite/
+
+# Storybook output
+storybook-static/
+
+# --- Backend (NestJS) ---
+# NestJS cache directory
+.nest/
+
+# --- Electron ---
+# Ignore Electron build/packaging output directories
+release/
+app-builds/
+*.dmg
+*.exe
+*.msi
+*.app
+*.AppImage
+*.snap
+*.deb
+*.rpm
+*.zip
+*.tar.gz
+*.pkg
+
+# --- Testing & Coverage ---
+# Ignore test reports and coverage output
+coverage/
+.nyc_output/
+lerna-debug.log
+junit.xml
+test-results/
+lcov.info
+
+# --- Databases ---
+# Ignore SQLite database files
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# --- User Specific ---
+# Ignore custom backup directory
+backups/
+
+# --- Other Dependencies / Tools ---
+# Ignore specific tool caches or outputs if needed
+# .turbo/
+# .vercel/
+
+# Lockfiles other than pnpm's
+**/package-lock.json
+**/yarn.lock

@@ -1,0 +1,63 @@
+// packages/main/tsconfig.json
+{
+  // Inherit settings from the base configuration at the monorepo root
+  "extends": "../../tsconfig.base.json",
+
+  "compilerOptions": {
+    // --- Overrides for Backend/Electron Main ---
+
+    // Specify the module system as CommonJS, typical for Node.js backends and Electron main process
+    "module": "CommonJS",
+
+    // Use the classic Node module resolution strategy, corresponding to "module": "CommonJS"
+    "moduleResolution": "Node",
+
+    // Define the output directory for compiled JavaScript files relative to this tsconfig.json
+    "outDir": "./dist",
+
+    // Define the root directory of the source files for this package
+    "rootDir": "./src",
+
+    // Explicitly include Node.js types for this backend environment
+    "types": ["node"],
+
+    // --- Settings Inherited from tsconfig.base.json (Examples) ---
+    // "target": "ES2022",
+    // "strict": true,
+    // "esModuleInterop": true,
+    // "skipLibCheck": true,
+    // "forceConsistentCasingInFileNames": true,
+    // "sourceMap": true,
+    // "declaration": true, // Keep if this package might be imported by others (e.g., testing)
+    // "declarationMap": true,
+    // "composite": true, // Keep for monorepo build optimizations
+    // "incremental": true, // Keep for faster rebuilds
+
+    // --- Optional: Adjust Lib if needed ---
+    // If the base config includes DOM libs, you might want to override it here
+    // to only include ECMAScript features relevant to Node.js.
+    // "lib": ["ES2022"], // Example: Explicitly set libs for Node environment
+
+    // --- Optional: Path Aliases (if used) ---
+    // Define path aliases specific to this package if needed, relative to baseUrl
+    // "baseUrl": "./", // Often needed when using paths
+    // "paths": {
+    //   "@/*": ["./src/*"]
+    // }
+  },
+
+  // Specify the files to be included in the compilation for this package
+  "include": ["src/**/*"],
+
+  // Specify files or directories to exclude from compilation for this package
+  // node_modules is usually excluded by default or in the base config,
+  // but explicitly excluding dist is good practice.
+  "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts"],
+
+  // --- Optional: Project References ---
+  // If this package depends on other TypeScript packages within the monorepo
+  // (e.g., a shared types package), list their tsconfig.json paths here.
+  // "references": [
+  //   { "path": "../common-types" }
+  // ]
+}

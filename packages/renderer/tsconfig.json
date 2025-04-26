@@ -1,0 +1,75 @@
+// packages/renderer/tsconfig.json
+{
+  // Inherit settings from the base configuration at the monorepo root
+  "extends": "../../tsconfig.base.json",
+
+  "compilerOptions": {
+    // --- Overrides & Additions for React/Vite Frontend ---
+
+    // Use modern ES Modules, suitable for Vite and modern browsers
+    "module": "ESNext",
+
+    // Use the module resolution strategy designed for bundlers like Vite
+    "moduleResolution": "Bundler", // Or "NodeNext" if preferred, but "Bundler" is more specific
+
+    // Enable the modern React JSX transform
+    "jsx": "react-jsx",
+
+    // Add browser-specific libraries (DOM APIs) to the compilation context
+    // Ensure this includes the base target (e.g., ES2022) if not automatically inherited
+    // Adjust "ES2022" if your base config uses a different target like "ESNext"
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+
+    // Ensure files are treated as isolated modules, required by Vite/esbuild for fast transpilation
+    "isolatedModules": true,
+
+    // CRITICAL: Do not emit JavaScript output from tsc. Vite handles the entire build process.
+    "noEmit": true,
+
+    // Allow importing .json files
+    "resolveJsonModule": true, // Often useful in frontends, ensure it's true
+
+    // Allow JavaScript files to be imported (useful for integrating third-party JS libs)
+    "allowJs": true, // Ensure this is true
+
+    // --- Settings Inherited from tsconfig.base.json (Examples) ---
+    // "target": "ES2022", // Or ESNext
+    // "strict": true,
+    // "esModuleInterop": true,
+    // "skipLibCheck": true,
+    // "forceConsistentCasingInFileNames": true,
+    // "sourceMap": true, // While tsc doesn't emit, source maps are handled by Vite
+
+    // --- Settings Not Needed due to noEmit: true ---
+    // "declaration": false, // Not emitting declarations
+    // "declarationMap": false,
+    // "outDir": "./dist", // Vite handles output directory
+    // "rootDir": "./src",
+    // "composite": false, // Usually false for the final app bundle if nothing depends on its types directly
+    // "incremental": false, // Not applicable with noEmit
+
+    // --- Optional: Path Aliases (if used) ---
+    // Define path aliases specific to this package if needed, relative to baseUrl
+    // Ensure Vite config (`resolve.alias`) is also updated to match these paths!
+    // "baseUrl": "./", // Often needed when using paths
+    // "paths": {
+    //   "@/*": ["./src/*"]
+    // }
+  },
+
+  // Specify the files TypeScript should analyze
+  // Include source files and potentially Vite config if it's in TypeScript
+  "include": ["src", "vite.config.ts"], // Adjust if your Vite config has a different name/location
+
+  // Specify files or directories to exclude
+  "exclude": ["node_modules", "dist", "build"], // Exclude build outputs even if tsc doesn't create them
+
+  // --- Optional: Project References ---
+  // If this package depends on other TypeScript packages within the monorepo
+  // (e.g., a shared types or UI components package), list their tsconfig.json paths here.
+  // This helps TypeScript understand the dependencies even with `noEmit`.
+  // "references": [
+  //   { "path": "../common-types" },
+  //   { "path": "../shared-ui" }
+  // ]
+}

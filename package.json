@@ -1,0 +1,29 @@
+{
+  "name": "mp3-sync-app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "out/main/main.js",
+  "scripts": {
+    "dev": "electron-vite dev --watch",
+    "build": "electron-vite build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "private": true,
+  "packageManager": "pnpm@10.9.0",
+  "dependencies": {
+    "mp3-sync-app": "file:"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.2",
+    "@vitejs/plugin-react": "^4.4.1",
+    "concurrently": "^9.1.2",
+    "electron": "^35.2.1",
+    "electron-vite": "^3.1.0",
+    "eslint": "^9.25.1",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.3"
+  }
+}

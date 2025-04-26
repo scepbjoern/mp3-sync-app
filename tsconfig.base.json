@@ -1,0 +1,43 @@
+// tsconfig.base.json
+{
+  "compilerOptions": {
+    /* Base Options: */
+    "esModuleInterop": true, // Enables compatibility with CommonJS modules
+    "skipLibCheck": true, // Skip type checking of declaration files (speeds up compilation)
+    "target": "ES2022", // Target latest stable ECMAScript features
+    "allowJs": true, // Allow JavaScript files to be compiled
+    "resolveJsonModule": true, // Allow importing JSON files
+    "moduleDetection": "force", // Treat files as modules even if they don't have imports/exports
+    "isolatedModules": true, // Ensure each file can be safely transpiled without relying on other imports (good for build tools)
+
+    /* Strictness */
+    "strict": true, // Enable all strict type-checking options
+    // "noImplicitAny": true, // Covered by "strict": true
+    "noUnusedLocals": true, // Report errors on unused local variables
+    "noUnusedParameters": true, // Report errors on unused parameters
+    "noFallthroughCasesInSwitch": true, // Report errors for fallthrough cases in switch statements
+    "forceConsistentCasingInFileNames": true, // Disallow inconsistently-cased references to the same file.
+
+    /* Module Resolution */
+    "module": "NodeNext", // Use Node.js's modern module system
+    "moduleResolution": "NodeNext", // Use Node.js's modern module resolution strategy
+
+    /* Output */
+    "sourceMap": true, // Generate corresponding '.map' files for debugging
+    "declaration": true, // Generate corresponding '.d.ts' files (useful for libraries)
+    "declarationMap": true, // Generate sourcemaps for '.d.ts' files
+    "composite": true, // Enable project references (essential for monorepos)
+    "incremental": true, // Enable incremental compilation
+
+    /* JSX */
+    "jsx": "react-jsx" // Support JSX in .tsx files using the new React transform (can be overridden in specific packages if needed)
+
+    /* Paths & Root - Usually set in specific tsconfig.json files inheriting this base */
+    // "baseUrl": ".",
+    // "paths": {},
+    // "rootDir": ".",
+    // "outDir": "dist",
+  },
+  /* Exclude node_modules and build outputs globally */
+  "exclude": ["node_modules", "dist", "build"]
+}
