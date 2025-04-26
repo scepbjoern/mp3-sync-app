@@ -4,6 +4,8 @@
   "extends": "../../tsconfig.base.json",
 
   "compilerOptions": {
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
     // --- Overrides for Backend/Electron Main ---
 
     // Specify the module system as CommonJS, typical for Node.js backends and Electron main process

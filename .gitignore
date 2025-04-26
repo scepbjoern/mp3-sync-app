@@ -122,6 +122,7 @@ lerna-debug.log
 junit.xml
 test-results/
 lcov.info
+test-files/
 
 # --- Databases ---
 # Ignore SQLite database files
