@@ -1,72 +1,56 @@
 // packages/main/src/app/database/prisma.service.ts
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
-/**
- * Injectable service that manages the PrismaClient instance.
- * It connects to the database on module initialization and disconnects on module destruction.
- * By extending PrismaClient, this service instance itself can be used to make database queries.
- */
 @Injectable()
-export class PrismaService
-  extends PrismaClient // Extend PrismaClient directly
-  implements OnModuleInit, OnModuleDestroy
-{
+// REMOVED "extends PrismaClient"
+// Still implement lifecycle hooks
+export class PrismaService implements OnModuleInit {
   private readonly logger = new Logger(PrismaService.name);
+  // Create a private instance of the actual PrismaClient
+  private readonly prisma: PrismaClient;
 
   constructor() {
-    // You can pass PrismaClient options here if needed, e.g., logging configuration
-    // super({
-    //   log: [
-    //     { emit: 'event', level: 'query' },
-    //     { emit: 'stdout', level: 'info' },
-    //     { emit: 'stdout', level: 'warn' },
-    //     { emit: 'stdout', level: 'error' },
-    //   ],
-    //   errorFormat: 'pretty',
-    // });
-    super(); // Call the parent PrismaClient constructor
+    this.prisma = new PrismaClient({
+      // Optional: Configure Prisma Client logging, datasources etc. here
+      // log: ['query', 'info', 'warn', 'error'],
+    });
+    this.logger.log('PrismaClient instance created by PrismaService.');
   }
 
-  /**
-   * Called once the host module has been initialized.
-   * Establishes the database connection.
-   */
   async onModuleInit() {
-    this.logger.log('Connecting to the database...');
+    this.logger.log('Connecting to the database via PrismaService...');
     try {
-      await this.$connect();
-      this.logger.log('Database connection established successfully.');
-
-      // Optional: Add listeners for Prisma events if using event-based logging
-      // this.$on('query' as any, (e: any) => {
-      //   this.logger.debug(`Query: ${e.query} Params: ${e.params} Duration: ${e.duration}ms`);
-      // });
-
+      // Call connect on the internal instance
+      //await this.prisma.$connect();
+      this.logger.log('Database connection established successfully via PrismaService.');
     } catch (error) {
       this.logger.error('Failed to connect to the database.', error);
-      // Depending on your application's needs, you might want to handle this error more gracefully
-      // or even prevent the application from starting.
-      throw error; // Re-throw the error to potentially stop NestJS initialization
+      throw error; // Propagate error during startup
     }
   }
 
-  /**
-   * Called once the host module is about to be destroyed.
-   * Closes the database connection.
-   */
-  async onModuleDestroy() {
-    this.logger.log('Disconnecting from the database...');
-    await this.$disconnect();
-    this.logger.log('Database connection closed successfully.');
+  // --- Provide access to the underlying client ---
+  // Other services will inject PrismaService and call this getter
+  // (or specific model getters) to perform DB operations.
+  get client(): PrismaClient {
+    return this.prisma;
   }
 
-  // By extending PrismaClient, all Prisma model methods (e.g., this.user.findUnique)
-  // are directly available on instances of this PrismaService.
-  // You don't need a separate method like `getClient()` or a public property.
+  // ---- Example of specific model getters (Alternative to exposing full client) ----
+  /*
+  get fileMappingState() {
+     return this.prisma.fileMappingState;
+  }
+  get syncStateTag() {
+     return this.prisma.syncStateTag;
+  }
+  */
   // Example usage in another service:
-  // constructor(private prisma: PrismaService) {}
-  // async findUser(id: number) {
-  //   return this.prisma.user.findUnique({ where: { id } });
+  // constructor(private prismaService: PrismaService) {}
+  // async findMapping(id: number) {
+  //    return this.prismaService.client.fileMappingState.findUnique({ where: { id } });
+  // // OR if using model getters:
+  // // return this.prismaService.fileMappingState.findUnique({ where: { id } });
   // }
 }

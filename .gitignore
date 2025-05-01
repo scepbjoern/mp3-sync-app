@@ -143,3 +143,6 @@ backups/
 # Lockfiles other than pnpm's
 **/package-lock.json
 **/yarn.lock
+
+# Ignore generated Prisma client
+packages/main/src/generated

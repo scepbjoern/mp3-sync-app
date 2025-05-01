@@ -21,7 +21,8 @@
     "@types/react-dom": "^19.1.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "renderer": "file:"
+    "renderer": "file:",
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.4.1",

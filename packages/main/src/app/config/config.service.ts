@@ -1,10 +1,11 @@
-// packages/main/src/app/config/config.service.ts
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import * as fs from 'node:fs/promises';
+// packages/main/src/app/config/config.service.ts (Corrected)
+import { Injectable, Logger, Optional } from '@nestjs/common'; // Removed OnModuleInit
+import * as fsSync from 'node:fs'; // Use synchronous fs for constructor load
+import * as fs from 'node:fs/promises'; // Use async fs for saving later
 import * as path from 'node:path';
-import * as os from 'node:os'; // For temporary default paths
+import * as os from 'node:os';
 
-export interface AppConfig { // Export interface for potential use elsewhere
+export interface AppConfig {
   databasePath: string | null;
   backupPath: string | null;
   sourceAPath: string | null;
@@ -16,156 +17,118 @@ export interface AppConfig { // Export interface for potential use elsewhere
 }
 
 @Injectable()
-export class ConfigService implements OnModuleInit {
-    private config: AppConfig;
-    private readonly configFilePath: string;
-    private readonly defaultLogPath: string;
-    private readonly defaultBackupPath: string;
-    private readonly defaultDbPath: string;
-    private readonly logger = new Logger(ConfigService.name);
+export class ConfigService {
+  private readonly config: AppConfig; // Guaranteed set by constructor
+  private readonly configFilePath: string;
+  private readonly defaultLogPath: string;
+  private readonly defaultBackupPath: string;
+  private readonly defaultDbPath: string;
+  private readonly logger = new Logger(ConfigService.name);
 
-    // Allow optional basePath override in constructor
-    constructor(basePathOverride?: string) {
-        let basePath: string;
-        if (basePathOverride) {
-            basePath = basePathOverride;
-            // Use console.log here as logger might not be ready if another service calls this constructor early
-            console.log(`[ConfigService Constructor] Using provided base path override: ${basePath}`);
-        } else {
-            // TODO: Properly inject actual userDataPath from Electron main.ts later.
-            basePath = path.join(os.tmpdir(), 'mp3-sync-app-data'); // Default temporary path
-            console.log(`[ConfigService Constructor] Using default base path: ${basePath}`);
-        }
-
-        this.configFilePath = path.join(basePath, 'config.json');
-        this.defaultDbPath = path.join(basePath, 'sync_data.db');
-        this.defaultBackupPath = path.join(basePath, 'backups');
-        this.defaultLogPath = path.join(basePath, 'app.log');
-
-        this.config = this.getDefaults(); // Initialize with defaults
-        // Removed the log message here as logger isn't ready yet
+  constructor(@Optional() basePathOverride?: string) {
+    let basePath: string;
+    if (basePathOverride) {
+        basePath = basePathOverride;
+        console.log(`[ConfigService Constructor] Using provided base path override: ${basePath}`);
+    } else {
+        // TODO: Properly inject actual userDataPath from Electron main.ts later.
+        basePath = path.join(os.tmpdir(), 'mp3-sync-app-data'); // Default temporary path
+        console.log(`[ConfigService Constructor] Using default base path: ${basePath}`);
     }
 
-  // Use OnModuleInit to load saved config from file async, overriding defaults
-  async onModuleInit(): Promise<void> {
-    await this.loadConfigFromFile();
-    this.logger.log('ConfigService onModuleInit: Attempted load from file complete.');
+    this.configFilePath = path.join(basePath, 'config.json');
+    this.defaultDbPath = path.join(basePath, 'sync_data.db');
+    this.defaultBackupPath = path.join(basePath, 'backups');
+    this.defaultLogPath = path.join(basePath, 'app.log');
+
+    // Load Config Synchronously in constructor
+    this.config = this.loadConfigFromFileSync();
+    this.logger.log('ConfigService Initialized and config loaded/defaults set.');
   }
 
-  // Make loadConfigFromFile private as it's called by onModuleInit
-  private async loadConfigFromFile(): Promise<void> {
-     if (!this.configFilePath) {
-         this.logger.error("Config file path not set before loading.");
-         this.config = this.getDefaults();
-         return;
-     }
-     try {
-       // Ensure directory exists before reading/writing
-       await fs.mkdir(path.dirname(this.configFilePath), { recursive: true });
-       const configFileContent = await fs.readFile(this.configFilePath, 'utf-8');
-       // --- DIAGNOSTIC LOG ---
-       console.log(`DEBUG[ConfigService]: Read raw content from ${this.configFilePath}: ${configFileContent}`);
-       // --- END DIAGNOSTIC LOG ---
-       const loadedConfig = JSON.parse(configFileContent);
-       // --- DIAGNOSTIC LOG ---
-       console.log(`DEBUG[ConfigService]: Parsed config from file:`, loadedConfig);
-       // --- END DIAGNOSTIC LOG ---
-       // Merge loaded config OVER defaults that were set in constructor
-       this.config = { ...this.getDefaults(), ...loadedConfig };
-       // --- DIAGNOSTIC LOG ---
-       console.log(`DEBUG[ConfigService]: Merged config state:`, this.config);
-       // --- END DIAGNOSTIC LOG ---
-       this.logger.log(`Config loaded successfully from ${this.configFilePath}`);
-     } catch (error) {
-       // Check specifically for file not found to load defaults
-       if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-         this.logger.log(`Config file not found at ${this.configFilePath}. Saving current defaults.`);
-         // Config already holds defaults from constructor, just save them
-         // --- DIAGNOSTIC LOG ---
-         console.log(`DEBUG[ConfigService]: Setting defaults due to ENOENT:`, this.config);
-         // --- END DIAGNOSTIC LOG ---
-         await this.saveConfigInternal(); // Save defaults if file doesn't exist
-       } else {
-         // Handle JSON parse errors or other read errors
-         this.logger.error(`Error loading/parsing config from ${this.configFilePath}. Using defaults already set.`, error);
-         // Keep defaults already set in constructor
-         this.config = this.getDefaults(); // Ensure config holds defaults on other errors too
-         // --- DIAGNOSTIC LOG ---
-         console.log(`DEBUG[ConfigService]: Setting defaults due to other error:`, this.config);
-         // --- END DIAGNOSTIC LOG ---
-       }
-     }
-   }
+  // Helper for default structure and values - MUST be defined before use in constructor
+  private getDefaults(): AppConfig {
+    return {
+      databasePath: null,
+      backupPath: null,
+      logFilePath: null,
+      sourceAPath: null,
+      sourceBPath: null,
+      tagsToSync: 'ALL',
+      bidirectionalTags: ["TKEY", "TBP", "TXXX:EnergyLevel"],
+      logLevel: 'info',
+    };
+  }
 
-   // Helper for default structure and values
-   private getDefaults(): AppConfig {
-     return {
-       databasePath: null, // Null means use the default path variable later
-       backupPath: null,
-       logFilePath: null,
-       sourceAPath: null,
-       sourceBPath: null,
-       tagsToSync: 'ALL',
-       bidirectionalTags: ["TKEY", "TBP", "TXXX:EnergyLevel"], // Example defaults
-       logLevel: 'info', // Default log level
-     };
-   }
+  // Synchronous loading method called ONLY from constructor
+  private loadConfigFromFileSync(): AppConfig {
+    const defaults = this.getDefaults(); // Call the correctly defined method
+    try {
+      // Ensure directory exists synchronously before reading
+      try { fsSync.mkdirSync(path.dirname(this.configFilePath), { recursive: true }); } catch {}
 
-   // Internal save - uses current state of this.config
-   private async saveConfigInternal(): Promise<boolean> {
-      // No need to check null this.config as it's set in constructor
+      const configFileContent = fsSync.readFileSync(this.configFilePath, 'utf-8');
+      const loadedConfig = JSON.parse(configFileContent);
+      this.logger.log(`Config loaded successfully from ${this.configFilePath}`);
+      // Merge loaded OVER defaults
+      return { ...defaults, ...loadedConfig };
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+        this.logger.log(`Config file not found at ${this.configFilePath}. Saving defaults.`);
+        this.saveConfigInternalSync(defaults); // Save defaults synchronously
+        return defaults;
+      } else {
+        this.logger.error(`Error loading/parsing sync config from ${this.configFilePath}. Using defaults.`, error);
+        return defaults; // Return defaults on other errors
+      }
+    }
+  }
+
+   // Internal synchronous save used only during initial load if file missing
+   private saveConfigInternalSync(configToSave: AppConfig): boolean {
       try {
-         await fs.mkdir(path.dirname(this.configFilePath), { recursive: true });
-         await fs.writeFile(this.configFilePath, JSON.stringify(this.config, null, 2), 'utf-8');
+         fsSync.mkdirSync(path.dirname(this.configFilePath), { recursive: true });
+         // Use synchronous writeFileSync here
+         fsSync.writeFileSync(this.configFilePath, JSON.stringify(configToSave, null, 2), 'utf-8');
          return true;
       } catch (error) {
-         this.logger.error(`Error saving config internally to ${this.configFilePath}`, error);
+         this.logger.error(`Error saving initial default config sync to ${this.configFilePath}`, error);
          return false;
       }
    }
 
-   async saveConfig(): Promise<boolean> {
-     // No need to check null this.config
-     const success = await this.saveConfigInternal();
-     if (success) {
-         this.logger.log(`Config saved to ${this.configFilePath}`);
+  // Public save remains async using fs/promises
+  async saveConfig(): Promise<boolean> {
+    try {
+       // Use async writeFile from fs/promises here
+       await fs.writeFile(this.configFilePath, JSON.stringify(this.config, null, 2), { encoding: 'utf-8' }); // Pass encoding in options object
+       this.logger.log(`Config saved to ${this.configFilePath}`);
+       return true;
+     } catch (error) {
+       this.logger.error(`Error saving config to ${this.configFilePath}`, error);
+       return false;
      }
-     return success;
-   }
+  }
 
    // --- Getters ---
-   // Simplified check: config object always exists after constructor.
-   private ensureConfigLoaded(operation: string = 'access'): AppConfig {
-      if (!this.config) {
-          // This state should now be unreachable if constructor ran.
-          const errorMsg = `ConfigService: Configuration accessed (${operation}) but this.config is null! This indicates an issue during instantiation.`;
-          this.logger.error(errorMsg);
-          throw new Error(errorMsg);
-      }
-      return this.config;
-   }
-
-  // Return actual configured path OR the calculated default path if config value is null
-  public getDatabasePath(): string { return this.ensureConfigLoaded('getDatabasePath').databasePath ?? this.defaultDbPath; }
-  public getBackupPath(): string { return this.ensureConfigLoaded('getBackupPath').backupPath ?? this.defaultBackupPath; }
-  public getLogFilePath(): string { return this.ensureConfigLoaded('getLogFilePath').logFilePath ?? this.defaultLogPath; }
-
-  // Return value directly from config (can be null)
-  public getSourceAPath(): string | null { return this.ensureConfigLoaded('getSourceAPath').sourceAPath; }
-  public getSourceBPath(): string | null { return this.ensureConfigLoaded('getSourceBPath').sourceBPath; }
-  public getTagsToSync(): 'ALL' | string[] { return this.ensureConfigLoaded('getTagsToSync').tagsToSync; }
-  public getBidirectionalTags(): string[] { return this.ensureConfigLoaded('getBidirectionalTags').bidirectionalTags; }
-  public getLogLevel(): string { return this.ensureConfigLoaded('getLogLevel').logLevel; }
+   // No need for ensureConfigLoaded as config is set in constructor
+  public getDatabasePath(): string { return this.config.databasePath ?? this.defaultDbPath; }
+  public getBackupPath(): string { return this.config.backupPath ?? this.defaultBackupPath; }
+  public getLogFilePath(): string { return this.config.logFilePath ?? this.defaultLogPath; }
+  public getSourceAPath(): string | null { return this.config.sourceAPath; }
+  public getSourceBPath(): string | null { return this.config.sourceBPath; }
+  public getTagsToSync(): 'ALL' | string[] { return this.config.tagsToSync; }
+  public getBidirectionalTags(): string[] { return this.config.bidirectionalTags; }
+  public getLogLevel(): string { return this.config.logLevel; }
 
 
   // --- Setters ---
-  // Config guaranteed to exist
-  public async setSourceAPath(pathValue: string | null): Promise<void> { this.ensureConfigLoaded('setSourceAPath').sourceAPath = pathValue; await this.saveConfig(); }
-  public async setSourceBPath(pathValue: string | null): Promise<void> { this.ensureConfigLoaded('setSourceBPath').sourceBPath = pathValue; await this.saveConfig(); }
-  public async setDatabasePath(pathValue: string | null): Promise<void> { this.ensureConfigLoaded('setDatabasePath').databasePath = pathValue; await this.saveConfig(); }
-  public async setBackupPath(pathValue: string | null): Promise<void> { this.ensureConfigLoaded('setBackupPath').backupPath = pathValue; await this.saveConfig(); }
-  public async setLogFilePath(pathValue: string | null): Promise<void> { this.ensureConfigLoaded('setLogFilePath').logFilePath = pathValue; await this.saveConfig(); }
-  public async setLogLevel(level: string): Promise<void> { this.ensureConfigLoaded('setLogLevel').logLevel = level; await this.saveConfig(); }
-  public async setTagsToSync(tags: 'ALL' | string[]): Promise<void> { this.ensureConfigLoaded('setTagsToSync').tagsToSync = tags; await this.saveConfig(); }
-  public async setBidirectionalTags(tags: string[]): Promise<void> { this.ensureConfigLoaded('setBidirectionalTags').bidirectionalTags = tags; await this.saveConfig(); }
+  public async setSourceAPath(pathValue: string | null): Promise<void> { this.config.sourceAPath = pathValue; await this.saveConfig(); }
+  public async setSourceBPath(pathValue: string | null): Promise<void> { this.config.sourceBPath = pathValue; await this.saveConfig(); }
+  public async setDatabasePath(pathValue: string | null): Promise<void> { this.config.databasePath = pathValue; await this.saveConfig(); }
+  public async setBackupPath(pathValue: string | null): Promise<void> { this.config.backupPath = pathValue; await this.saveConfig(); }
+  public async setLogFilePath(pathValue: string | null): Promise<void> { this.config.logFilePath = pathValue; await this.saveConfig(); }
+  public async setLogLevel(level: string): Promise<void> { this.config.logLevel = level; await this.saveConfig(); }
+  public async setTagsToSync(tags: 'ALL' | string[]): Promise<void> { this.config.tagsToSync = tags; await this.saveConfig(); }
+  public async setBidirectionalTags(tags: string[]): Promise<void> { this.config.bidirectionalTags = tags; await this.saveConfig(); }
 }
