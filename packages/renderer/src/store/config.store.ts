@@ -1,197 +1,198 @@
 // packages/renderer/src/store/config.store.ts
 import { create } from 'zustand';
 
-// --- Define the expected config structure LOCALLY ---
-// Based on the data received from the 'config:get' IPC handler
-// Only include fields the frontend store actually needs to manage.
-interface ConfigData {
-  sourceAPath: string | null;
-  sourceBPath: string | null;
-  backupPath: string | null;
-  logFilePath: string | null;
-  logLevel: string;
+//
+// ——— Data & Action Types —————————————————————————
+//
+export interface ConfigData {
+  sourceAPath:       string | null;
+  sourceBPath:       string | null;
+  backupPath:        string | null;
+  logFilePath:       string | null;
+  logLevel:          string;
   bidirectionalTags: string[];
-  tagsToSync: 'ALL' | string[];
+  tagsToSync:        'ALL' | string[];
 }
 
-// Define the store's state shape
-interface ConfigState extends ConfigData {
+export interface ScanState {
+  isScanning:    boolean;
+  scanError:     string | null;
+  scannedFilesA: string[];
+}
+
+export interface ConfigState extends ConfigData, ScanState {
   isLoading: boolean;
-  error: string | null;
+  error:     string | null;
 }
 
-// Define the store's actions
-interface ConfigActions {
-  loadConfig: () => Promise<void>;
-  setSourceAPath: (path: string | null) => Promise<void>;
-  setSourceBPath: (path: string | null) => Promise<void>;
-  setBackupPath: (path: string | null) => Promise<void>;
-  setLogFilePath: (path: string | null) => Promise<void>;
-  setLogLevel: (level: string) => Promise<void>;
-  setError: (message: string | null) => void;
-  setTagsToSync: (tags: 'ALL' | string[]) => Promise<void>;
-  setBidirectionalTags: (tags: string[]) => Promise<void>;
+export interface ConfigActions {
+  loadConfig:           () => Promise<void>;
+  setSourceAPath:       (path: string | null) => Promise<void>;
+  setSourceBPath:       (path: string | null) => Promise<void>;
+  setBackupPath:        (path: string | null) => Promise<void>;
+  setLogFilePath:       (path: string | null) => Promise<void>;
+  setLogLevel:          (level: string)      => Promise<void>;
+  setTagsToSync:        (tags: 'ALL' | string[]) => Promise<void>;
+  setBidirectionalTags: (tags: string[])         => Promise<void>;
+  setError:             (message: string | null) => void;
+  scanSourceA:          () => Promise<void>;
 }
 
-// Define the initial state
+//
+// ——— Initial State ———————————————————————————————————
 const initialState: ConfigState = {
-  isLoading: false,
-  error: null,
-  sourceAPath: null,
-  sourceBPath: null,
-  backupPath: null, // Consider if frontend needs direct access or just via app:get-path
-  logFilePath: null, // Consider if frontend needs direct access or just via app:get-path
-  logLevel: 'info', // Sensible default before loading
+  // loading/error
+  isLoading:    false,
+  error:        null,
+
+  // config fields
+  sourceAPath:       null,
+  sourceBPath:       null,
+  backupPath:        null,
+  logFilePath:       null,
+  logLevel:          'info',
   bidirectionalTags: [],
-  tagsToSync: 'ALL',
+  tagsToSync:        'ALL',
+
+  // scan state
+  isScanning:    false,
+  scanError:     null,
+  scannedFilesA: [],
 };
 
-// Create the store
+//
+// ——— Store Definition ———————————————————————————————
 export const useConfigStore = create<ConfigState & ConfigActions>((set, get) => ({
   ...initialState,
 
-  // --- Action to load config from backend ---
+  // — Load the saved config from main —
   loadConfig: async () => {
     set({ isLoading: true, error: null });
     try {
-      // Call the globally exposed API from preload script
-      const response = await window.electronAPI.configGet();
-      if (response.success && response.data) {
-        // Update state with relevant fields from the response data
+      const res = await window.electronAPI.configGet();
+      if (res.success && res.data) {
         set({
-          sourceAPath: response.data.sourceAPath ?? null,
-          sourceBPath: response.data.sourceBPath ?? null,
-          backupPath: response.data.backupPath ?? null, // Store if needed
-          logFilePath: response.data.logFilePath ?? null, // Store if needed
-          logLevel: response.data.logLevel ?? 'info',
-          bidirectionalTags: response.data.bidirectionalTags ?? [],
-          tagsToSync: response.data.tagsToSync ?? 'ALL',
-          isLoading: false,
+          sourceAPath:       res.data.sourceAPath       ?? null,
+          sourceBPath:       res.data.sourceBPath       ?? null,
+          backupPath:        res.data.backupPath        ?? null,
+          logFilePath:       res.data.logFilePath       ?? null,
+          logLevel:          res.data.logFilePath ? res.data.logFilePath : 'info',
+          bidirectionalTags: res.data.bidirectionalTags ?? [],
+          tagsToSync:        res.data.tagsToSync        ?? 'ALL',
+          isLoading:         false,
         });
       } else {
-        throw new Error(response.error?.message || 'Failed to fetch config');
+        throw new Error(res.error?.message || 'Failed to load config');
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error loading config';
-      set({ error: message, isLoading: false });
-      console.error("Error loading config:", error);
+    } catch (e: any) {
+      console.error('loadConfig error:', e);
+      set({ error: e.message || 'Unknown error loading config', isLoading: false });
     }
   },
 
-  // --- Actions to set specific config values ---
-  setSourceAPath: async (path: string | null) => {
-    set({ sourceAPath: path }); // Optimistic UI update
+  // — Individual setters, all optimistic —
+  setSourceAPath: async (p) => {
+    set({ sourceAPath: p });
     try {
-      const response = await window.electronAPI.configSetPaths({ sourceAPath: path });
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to save Source A path');
-      }
-      // Optionally re-load config to confirm, or trust optimistic update
-      // get().loadConfig(); // Example re-load
-    } catch (error) {
-       const message = error instanceof Error ? error.message : 'Unknown error saving Source A path';
-       set({ error: message });
-       console.error("Error setting Source A Path:", error);
-       // Optional: Revert optimistic update if needed by re-loading config
+      const r = await window.electronAPI.configSetPaths({ sourceAPath: p });
+      if (!r.success) throw new Error(r.error?.message);
+    } catch (e: any) {
+      console.error('setSourceAPath error:', e);
+      set({ error: e.message || 'Error saving Source A path' });
     }
   },
 
-  setLogLevel: async (level: string) => {
-     set({ logLevel: level }); // Optimistic update
-     try {
-        const response = await window.electronAPI.configSetLogLevel(level);
-        if (!response.success) {
-           throw new Error(response.error?.message || 'Failed to save log level');
-        }
-     } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error saving log level';
-        set({ error: message });
-        console.error("Error setting Log Level:", error);
-     }
-  },
-
-  setSourceBPath: async (path: string | null) => {
-    set({ sourceBPath: path }); // Optimistic update
+  setSourceBPath: async (p) => {
+    set({ sourceBPath: p });
     try {
-      // Call backend to save
-      const response = await window.electronAPI.configSetPaths({ sourceBPath: path });
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to save Source B path');
-      }
-    } catch (error) {
-       const message = error instanceof Error ? error.message : 'Unknown error saving Source B path';
-       set({ error: message });
-       console.error("Error setting Source B Path:", error);
-       // Optional: Revert optimistic update by reloading config
-       // get().loadConfig();
+      const r = await window.electronAPI.configSetPaths({ sourceBPath: p });
+      if (!r.success) throw new Error(r.error?.message);
+    } catch (e: any) {
+      console.error('setSourceBPath error:', e);
+      set({ error: e.message || 'Error saving Source B path' });
     }
   },
 
-  setBackupPath: async (path: string | null) => {
-    set({ backupPath: path }); // Optimistic UI update
+  setBackupPath: async (p) => {
+    set({ backupPath: p });
     try {
-      const response = await window.electronAPI.configSetPaths({ backupPath: path });
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to save Backup path');
-      }
-    } catch (error) {
-       const message = error instanceof Error ? error.message : 'Unknown error saving Backup path';
-       set({ error: message });
-       console.error("Error setting Backup Path:", error);
+      const r = await window.electronAPI.configSetPaths({ backupPath: p });
+      if (!r.success) throw new Error(r.error?.message);
+    } catch (e: any) {
+      console.error('setBackupPath error:', e);
+      set({ error: e.message || 'Error saving Backup path' });
     }
   },
 
-  setLogFilePath: async (path: string | null) => {
-    set({ logFilePath: path }); // Optimistic UI update
+  setLogFilePath: async (p) => {
+    set({ logFilePath: p });
     try {
-      const response = await window.electronAPI.configSetPaths({ logFilePath: path });
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to save Log File path');
-      }
-    } catch (error) {
-       const message = error instanceof Error ? error.message : 'Unknown error saving Log File path';
-       set({ error: message });
-       console.error("Error setting Log File Path:", error);
+      const r = await window.electronAPI.configSetPaths({ logFilePath: p });
+      if (!r.success) throw new Error(r.error?.message);
+    } catch (e: any) {
+      console.error('setLogFilePath error:', e);
+      set({ error: e.message || 'Error saving Log File path' });
     }
   },
 
-  setError: (message: string | null) => {
-    set({ error: message }); // Use the 'set' function provided by create
-  },
-
-  setTagsToSync: async (tags: 'ALL' | string[]) => {
-    set({ tagsToSync: tags }); // Optimistic update
+  setLogLevel: async (lvl) => {
+    set({ logLevel: lvl });
     try {
-      const response = await window.electronAPI.configSetTagsToSync(tags);
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to save tags to sync');
-      }
-    } catch (error) {
-       const message = error instanceof Error ? error.message : 'Unknown error saving tags to sync';
-       set({ error: message });
-       console.error("Error setting Tags to Sync:", error);
-       // Optionally reload config to revert optimistic update
-       // get().loadConfig();
+      const r = await window.electronAPI.configSetLogLevel(lvl);
+      if (!r.success) throw new Error(r.error?.message);
+    } catch (e: any) {
+      console.error('setLogLevel error:', e);
+      set({ error: e.message || 'Error saving Log Level' });
     }
   },
 
-  setBidirectionalTags: async (tags: string[]) => {
-    // Ensure input is always an array, even if cleared
-    const tagsToSave = Array.isArray(tags) ? tags : [];
-    set({ bidirectionalTags: tagsToSave }); // Optimistic update
+  setTagsToSync: async (tags) => {
+    set({ tagsToSync: tags });
     try {
-      const response = await window.electronAPI.configSetBidirectionalTags(tagsToSave);
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to save bidirectional tags');
-      }
-    } catch (error) {
-       const message = error instanceof Error ? error.message : 'Unknown error saving bidirectional tags';
-       set({ error: message });
-       console.error("Error setting Bidirectional Tags:", error);
-       // Optionally reload config
-       // get().loadConfig();
+      const r = await window.electronAPI.configSetTagsToSync(tags);
+      if (!r.success) throw new Error(r.error?.message);
+    } catch (e: any) {
+      console.error('setTagsToSync error:', e);
+      set({ error: e.message || 'Error saving Tags to Sync' });
     }
   },
+
+  setBidirectionalTags: async (tags) => {
+    const arr = Array.isArray(tags) ? tags : [];
+    set({ bidirectionalTags: arr });
+    try {
+      const r = await window.electronAPI.configSetBidirectionalTags(arr);
+      if (!r.success) throw new Error(r.error?.message);
+    } catch (e: any) {
+      console.error('setBidirectionalTags error:', e);
+      set({ error: e.message || 'Error saving Bidirectional Tags' });
+    }
+  },
+
+  setError: (msg) => {
+    set({ error: msg });
+  },
+
+  // — Scan Source A folder for MP3s —
+  scanSourceA: async () => {
+    const dir = get().sourceAPath;
+    if (!dir) {
+      set({ isScanning: false, scanError: 'Source A path not set.', scannedFilesA: [] });
+      return;
+    }
+    set({ isScanning: true, scanError: null, scannedFilesA: [] });
+    try {
+      const r = await window.electronAPI.scanDirectory(dir);
+      if (r.success && r.data) {
+        set({ scannedFilesA: r.data, isScanning: false });
+      } else {
+        throw new Error(r.error?.message);
+      }
+    } catch (e: any) {
+      console.error('scanSourceA error:', e);
+      set({ scanError: e.message || 'Error scanning directory.', isScanning: false });
+    }
+  },
+
+  
 }));
-
-// Decide where to call loadConfig initially (e.g., App.tsx useEffect)

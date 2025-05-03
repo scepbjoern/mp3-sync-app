@@ -1,80 +1,61 @@
-// schema.prisma
+// packages/main/prisma/schema.prisma
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "windows"]  //  << neu
 }
 
 datasource db {
   provider = "sqlite"
-  // Configure path dynamically at runtime for Electron user data
   url      = "file:./sync_data.db"
+  // Removed engineType and previewFeatures
 }
 
-// Combines File Mapping identity/location with its latest File-level Sync State.
+// --- Your Models ---
+
 model FileMappingState {
-  // Auto-incrementing primary key
-  id                  Int      @id @default(autoincrement())
-
-  // --- Mapping Fields ---
-  // Current path to file in Source A. Must be unique.
-  sourceAPath         String   @unique
-  // Current path to file in Source B. Must be unique.
-  sourceBPath         String   @unique
-  // Timestamp for when the mapping was first created.
-  mappingCreatedAt    DateTime @default(now())
-  // Note: Prisma's automatic @updatedAt is omitted to avoid confusion.
-  // Updates to mapping paths (UC5) or sync state update lastSyncTimestamp instead.
-
-  // --- GUI Helper Fields (Redundant - Updated during Sync by Sync Engine) ---
-  // Artist tag (TPE1) from Source A, updated during sync when Source A changes. Nullable if never read/synced.
-  artist              String?
-  // Title tag (TIT2) from Source A, updated during sync when Source A changes. Nullable if never read/synced.
-  title               String?
-
-  // --- Latest Sync State Fields ---
-  // Filesystem last modified timestamp of File A recorded at the last sync for this pair. Nullable if never synced.
+  id                  Int       @id @default(autoincrement())
+  sourceAPath         String    @unique
+  sourceBPath         String    @unique
+  mappingCreatedAt    DateTime  @default(now())
+  // --- REMOVE @db.Text ---
+  artist              String?   @map("artist") // @db.Text removed
+  title               String?   @map("title")  // @db.Text removed
+  // -----------------------
   sourceALastModified DateTime?
-  // Filesystem last modified timestamp of File B recorded at the last sync for this pair. Nullable if never synced.
   sourceBLastModified DateTime?
-  // Timestamp indicating when this file pair was last successfully processed/synced. Nullable if never synced.
   lastSyncTimestamp   DateTime?
 
-  // --- Relation ---
-  // One-to-many relationship to the individual tag states recorded during the last sync event.
-  // 'tagStates' is the relation field name in this model.
-  tagStates           SyncStateTag[]
+  syncStateTags SyncStateTag[]
 
-  // --- Indices ---
-  // Indices on paths are automatically created by @unique
-  // Index potentially useful for finding pairs last synced before/after a certain time
   @@index([lastSyncTimestamp])
-  // Indices to support searching/sorting in the GUI by Artist/Title
   @@index([artist])
   @@index([title])
 }
 
-
-// Stores the last known synchronized state of a specific tag for the last file sync event.
 model SyncStateTag {
-  // Auto-incrementing primary key
-  id               Int      @id @default(autoincrement())
-
-  // Foreign Key linking back to the combined FileMappingState.
+  id                 Int     @id @default(autoincrement())
   fileMappingStateId Int
-  // The corresponding FileMappingState entry. onDelete: Cascade ensures tag states are removed if the mapping is deleted.
+  // --- REMOVE @db.Text ---
+  tagName            String  @map("tagName")    // @db.Text removed
+  sourceAValue       String? @map("sourceAValue") // @db.Text removed
+  sourceBValue       String? @map("sourceBValue") // @db.Text removed
+  // -----------------------
+
   fileMappingState FileMappingState @relation(fields: [fileMappingStateId], references: [id], onDelete: Cascade)
 
-  // The name of the ID3 tag being tracked (e.g., "TPE1", "TBPM")
-  tagName          String
-
-  // The value of the tag in File A recorded during this sync event (nullable).
-  sourceAValue     String?
-  // The value of the tag in File B recorded during this sync event (nullable).
-  sourceBValue     String?
-
-  // --- Indices & Constraints ---
-  // Index for efficiently finding all tags related to a specific file mapping state.
-  @@index([fileMappingStateId])
-  // Ensures only one state record exists per tag within a single file sync state event (identified by fileMappingStateId).
   @@unique([fileMappingStateId, tagName])
+  @@index([fileMappingStateId])
+}
+
+/// Track each Source A file for DJ-Library membership
+model SourceFileState {
+  id               Int      @id @default(autoincrement())
+  path             String   @unique                    // full absolute path
+  lastModifiedAt   DateTime?                           // file mtime on last scan
+  inDjLibrary      Boolean  @default(false)            // TXXX/DJBIBLIOTHEK != "Nein"
+  djLastChecked    DateTime @default(now())            // when we last read that tag
+
+  @@index([inDjLibrary])
+  @@index([lastModifiedAt])
 }

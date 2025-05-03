@@ -1,7 +1,7 @@
 {
   "name": "main",
   "version": "1.0.0",
-  "description": "",
+  "description": "Application to synchronize MP3 tags between two folders.",
   "main": "index.js",
   "scripts": {
     "prisma:generate": "npx prisma generate",
@@ -9,17 +9,13 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
-  "author": "",
+  "author": "bjoerns",
   "license": "ISC",
-  "packageManager": "pnpm@10.9.0",
   "dependencies": {
     "@nestjs/common": "^11.1.0",
     "@nestjs/core": "^11.1.0",
     "@nestjs/platform-express": "^11.1.0",
-    "@nestjs/platform-socket.io": "^11.1.0",
-    "@nestjs/websockets": "^11.1.0",
-    "@prisma/client": "^6.6.0",
-    "bufferutil": "^4.0.9",
+    "@prisma/client": "^6.7.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "electron-log": "^5.3.4",
@@ -27,8 +23,7 @@
     "main": "file:",
     "node-id3": "^0.2.9",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2",
-    "utf-8-validate": "^6.0.5"
+    "rxjs": "^7.8.2"
   },
   "devDependencies": {
     "prisma": "^6.6.0"

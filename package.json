@@ -1,51 +1,45 @@
 {
   "name": "mp3-sync-app",
+  "version": "0.1.0",
+  "main": ".webpack/main/index.js",
+  "private": true,
   "workspaces": [
     "packages/*"
   ],
-  "version": "1.0.0",
-  "description": "",
-  "main": ".webpack/main/main.js",
   "scripts": {
-    "start": "npm run generate:prisma && electron-forge start",
-    "package": "npm run generate:prisma && electron-forge package",
-    "make": "npm run generate:prisma && electron-forge make",
-    "publish": "electron-forge publish",
-    "lint": "eslint --ext .ts,.tsx .",
-    "generate:prisma": "npm run --workspace=packages/main prisma:generate",
-    "copy:prisma-schema": "cpy packages/main/prisma/schema.prisma .webpack/main",
-    "build": "npm run generate:prisma && electron-forge make --skip-package",
-    "build-package": "npm run generate:prisma && electron-forge make"
+    "dev": "electron-forge start",
+    "build": "electron-forge make",
+    "postinstall": "npm run prisma:generate",
+    "prisma:generate": "prisma generate --schema=packages/main/prisma/schema.prisma"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "private": true,
   "dependencies": {
-    "@nestjs/microservices": "^11.1.0",
+    "@nestjs/microservices": "^10.3.10",
+    "@prisma/client": "6.7.0",
     "mp3-sync-app": "file:"
   },
   "devDependencies": {
-    "@electron-forge/cli": "^7.8.0",
-    "@electron-forge/maker-squirrel": "^7.8.0",
-    "@electron-forge/maker-zip": "^7.8.0",
-    "@electron-forge/plugin-webpack": "^7.8.0",
-    "@types/node": "^22.15.2",
+    "@electron-forge/cli": "^7.4.0",
+    "@electron-forge/maker-squirrel": "^7.4.0",
+    "@electron-forge/maker-zip": "^7.4.0",
+    "@electron-forge/plugin-webpack": "^7.4.0",
+    "@types/node": "^20.14.15",
     "@vercel/webpack-asset-relocator-loader": "^1.7.0",
     "@vitejs/plugin-react": "^4.4.1",
-    "concurrently": "^9.1.2",
+    "copy-webpack-plugin": "^12.0.0",
     "cpy-cli": "^5.0.0",
     "css-loader": "^7.1.2",
-    "electron": "^35.2.1",
+    "electron": "35.2.2",
     "eslint": "^9.25.1",
-    "node-loader": "^2.1.0",
+    "node-loader": "^2.0.0",
+    "postcss": "^8.4.40",
     "postcss-loader": "^8.1.1",
     "prettier": "^3.5.3",
+    "prisma": "^6.7.0",
     "style-loader": "^4.0.0",
-    "ts-loader": "^9.5.2",
+    "ts-loader": "^9.5.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
-    "webpack": "^5.99.7",
-    "webpack-cli": "^6.0.1"
+    "webpack": "^5.99.0",
+    "webpack-cli": "^5.1.4"
   }
 }
