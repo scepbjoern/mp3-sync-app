@@ -8,6 +8,8 @@ import { FileSystemModule }       from './services/file-system.module';
 import { Mp3TagModule }           from './services/mp3-tag.module';
 import { SourceFileStateModule }  from './source-file-state/source-file-state.module';
 import { PairingModule }          from './pairing/pairing.module';
+import { SyncModule } from './sync/sync.module';
+import { BidirectionalSyncModule } from './bidirectional-sync/bidirectional-sync.module';
 
 @Module({
   imports: [
@@ -31,6 +33,10 @@ import { PairingModule }          from './pairing/pairing.module';
 
     // Initial-Pairing (PairingService + PairingController)
     PairingModule,
+
+    SyncModule,
+
+    BidirectionalSyncModule,
   ],
 })
 export class AppModule {}

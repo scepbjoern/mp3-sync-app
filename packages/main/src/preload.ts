@@ -51,6 +51,12 @@ const electronAPI = {
   getMappings:       () => ipcRenderer.invoke('pairing:get-mappings'),
   pairingSaveMappings: (entries: { sourceAPath: string; sourceBPath: string }[]) =>
     ipcRenderer.invoke('pairing:save-mappings', entries),
+
+  previewSync:             () => ipcRenderer.invoke('sync:preview'),
+  runSync:                 () => ipcRenderer.invoke('sync:run'),
+
+  syncBidirectional: (sourceAPath: string) => ipcRenderer.invoke('sync:bidirectional', sourceAPath),
+
 };
 
 /* ─────────────────────────────────────────────────────────────

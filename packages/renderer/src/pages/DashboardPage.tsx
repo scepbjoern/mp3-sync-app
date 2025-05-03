@@ -1,10 +1,19 @@
 // packages/renderer/src/pages/DashboardPage.tsx
 import { useCallback, useState } from 'react';
 import {
-  Title, Button, Stack, List, Text,
-  Loader, Alert, ScrollArea, Code,
+  Title,
+  Button,
+  Stack,
+  List,
+  Text,
+  Loader,
+  Alert,
+  ScrollArea,
+  Code,
+  Group,
 } from '@mantine/core';
 import { useConfigStore } from '../store/config.store';
+import { useSyncStore }   from '../store/sync.store';  // ← import your sync store
 
 export function DashboardPage() {
   const sourceAPath   = useConfigStore((s) => s.sourceAPath);
@@ -40,6 +49,12 @@ export function DashboardPage() {
     }
   };
 
+  // ─── Sync Now state & actions ────────────────────────
+  const previewSync = useSyncStore((s) => s.preview);
+  const runSync     = useSyncStore((s) => s.run);
+  const clearReport = useSyncStore((s) => s.clearReport);
+  const { isSyncing, syncError, syncReport } = useSyncStore();
+
   return (
     <Stack>
       <Title order={2}>Dashboard / Sync Status</Title>
@@ -51,21 +66,18 @@ export function DashboardPage() {
         Source B: <Code>{sourceBPath || 'Not Set'}</Code>
       </Text>
 
+      {/* ─── Scan Source A ──────────────────────────────── */}
       <Stack mt="lg" gap="sm">
         <Title order={4}>Scan Source A Files</Title>
-
         <Button w={200} onClick={scanSourceA} loading={isScanning} disabled={!sourceAPath}>
           Scan Source A
         </Button>
-
         {isScanning && <Loader size="sm" mt="xs" />}
-
         {scanError && (
           <Alert color="orange" mt="sm" withCloseButton onClose={clearScanError}>
             {scanError}
           </Alert>
         )}
-
         {!isScanning && scannedFilesA.length > 0 && (
           <>
             <Text size="sm" mt="sm">
@@ -84,10 +96,9 @@ export function DashboardPage() {
         )}
       </Stack>
 
-      {/* ─── DJ-Library Scan Section ──────────────────────────── */}
+      {/* ─── DJ-Library Scan ─────────────────────────────── */}
       <Stack mt="xl" gap="sm">
         <Title order={4}>Scan DJ-Library Membership</Title>
-
         <Button
           w={200}
           onClick={handleDjScan}
@@ -96,22 +107,48 @@ export function DashboardPage() {
         >
           Scan DJ Library
         </Button>
-
         {djScanLoading && <Loader size="sm" mt="xs" />}
-
         {djScanError && (
           <Alert color="red" mt="sm" withCloseButton onClose={() => setDjScanError(null)}>
             {djScanError}
           </Alert>
         )}
-
         {djScanResult && (
           <Text size="sm" mt="sm">
             Scanned {djScanResult.total} files; updated {djScanResult.updated} records.
           </Text>
         )}
       </Stack>
-      {/* ──────────────────────────────────────────────────────── */}
+
+      {/* ─── Synchronize Tags ────────────────────────────── */}
+      <Stack mt="xl" gap="sm">
+        <Title order={4}>Synchronize Tags</Title>
+        <Group>
+          <Button
+            onClick={previewSync}
+            loading={isSyncing}
+            disabled={!sourceAPath || !sourceBPath}
+          >
+            Preview Sync
+          </Button>
+          <Button
+            onClick={runSync}
+            loading={isSyncing}
+            disabled={syncReport.length === 0}
+          >
+            Run Sync
+          </Button>
+          <Button variant="outline" onClick={clearReport}>
+            Clear Report
+          </Button>
+        </Group>
+        {syncError && <Alert color="red">{syncError}</Alert>}
+        {syncReport.length > 0 && (
+          <Text size="sm">
+            {syncReport.length} files would be updated. Click “Run Sync” to apply.
+          </Text>
+        )}
+      </Stack>
     </Stack>
   );
 }

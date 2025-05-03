@@ -7,5 +7,6 @@ import { PairingController } from './pairing.controller';
 @Module({
   providers: [PairingService, PrismaService],
   controllers: [PairingController],
+  exports: [PairingService],
 })
 export class PairingModule {}

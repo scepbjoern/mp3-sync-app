@@ -1,5 +1,5 @@
 // packages/renderer/src/pages/PairingPage.tsx
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   Title, Button, Stack, Loader, Alert, ScrollArea,
   Table, Checkbox, Text, Group,

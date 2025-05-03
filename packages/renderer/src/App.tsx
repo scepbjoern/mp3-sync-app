@@ -10,6 +10,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { PairingPage } from './pages/PairingPage';
 import { MappingMaintenancePage } from './pages/MappingMaintenancePage';
 import { SyncReportsPage } from './pages/SyncReportsPage';
+import { SyncPage } from './pages/SyncPage';
 
 function App() {
   const [opened, { toggle }] = useDisclosure();
@@ -61,6 +62,7 @@ function App() {
           {/* Define Routes */}
           <Routes>
             <Route path="/" element={<DashboardPage />} />
+            <Route path="/sync"    element={<SyncPage />}     />
             <Route path="/pairing" element={<PairingPage />} />
             <Route path="/mappings" element={<MappingMaintenancePage />} />
             <Route path="/reports" element={<SyncReportsPage />} />

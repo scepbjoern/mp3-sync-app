@@ -17,5 +17,6 @@ import { SourceFileController }   from './source-file.controller';
   ],
   providers: [SourceFileStateService],
   controllers: [SourceFileController],
+  exports: [SourceFileStateService],
 })
 export class SourceFileStateModule {}

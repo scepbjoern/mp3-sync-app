@@ -29,6 +29,43 @@ export interface ElectronConfigAPI {
   pairingSaveMappings(
     entries: { sourceAPath: string; sourceBPath: string }[]
   ): Promise<{ success: boolean; data?: { count: number }; error?: { message: string } }>;
+
+  previewSync(): Promise<{
+    success: boolean;
+    data?: PreviewEntry[];
+    error?: { message: string };
+  }>;
+
+  /** Run actual sync: returns how many applied and any conflicts */
+  runSync(): Promise<{
+    success: boolean;
+    data?: { applied: number; conflicts: Array<{ source: string; tag: string; a: any; b: any }> };
+    error?: { message: string };
+  }>;
+
+  /**
+       * Bidirectional sync for one file.
+       * Returns updated‐A→B tags, updated‐B→A tags, and any conflicts.
+       */
+  syncBidirectional(
+    sourceAPath: string
+  ): Promise<{
+    success: boolean;
+    data?: {
+      updatedAtoB: string[];
+      updatedBtoA: string[];
+      conflicts: Array<{ tag: string; a: any; b: any }>;
+    };
+    error?: { message: string };
+  }>;
+}
+
+/** --- new shared preview‐sync type --- */
+export interface PreviewEntry {
+  filePath: string;
+  pendingUpdates: { tag: string; from: any; to: any }[];
+  applied?: number;           // ← number instead of string[]
+  conflicts?: { tag: string; a: any; b: any }[];
 }
 
 declare global {

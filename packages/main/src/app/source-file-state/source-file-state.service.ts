@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { FileSystemService } from '../services/file-system.service';
 import { Mp3TagService } from '../services/mp3-tag.service';
 import { PrismaService } from '../database/prisma.service';
@@ -6,7 +6,6 @@ import { ConfigService }      from '../config/config.service';
 
 @Injectable()
 export class SourceFileStateService {
-  private readonly logger = new Logger(SourceFileStateService.name);
 
   constructor(
     private readonly fsService: FileSystemService,
