@@ -2,7 +2,7 @@
 import { AppShell, Burger, Group, NavLink, ScrollArea, Title } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { HashRouter, Routes, Route, Link } from 'react-router-dom'; // Use HashRouter for Electron
-import { IconGauge, IconSettings, IconAdjustments, IconHistory, IconLink } from '@tabler/icons-react'; // Example icons
+import { IconGauge, IconSettings, IconAdjustments, IconHistory, IconLink, IconArrowsRightLeft } from '@tabler/icons-react'; // Example icons
 
 // Import your page components
 import { SettingsPage } from './pages/SettingsPage';
@@ -20,6 +20,7 @@ function App() {
     { icon: IconGauge, label: 'Dashboard / Sync', to: '/' },
     { icon: IconLink, label: 'Initial Pairing', to: '/pairing' },
     { icon: IconAdjustments, label: 'Edit Mappings', to: '/mappings' },
+    { icon: IconArrowsRightLeft,   label: 'Sync Tags',       to: '/sync' },
     { icon: IconHistory, label: 'Sync Reports', to: '/reports' },
     { icon: IconSettings, label: 'Settings', to: '/settings' },
   ];
@@ -62,9 +63,9 @@ function App() {
           {/* Define Routes */}
           <Routes>
             <Route path="/" element={<DashboardPage />} />
-            <Route path="/sync"    element={<SyncPage />}     />
             <Route path="/pairing" element={<PairingPage />} />
             <Route path="/mappings" element={<MappingMaintenancePage />} />
+            <Route path="/sync"    element={<SyncPage />}     />
             <Route path="/reports" element={<SyncReportsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             {/* Add other routes or nested routes as needed */}

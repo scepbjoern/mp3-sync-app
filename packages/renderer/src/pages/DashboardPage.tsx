@@ -1,4 +1,3 @@
-// packages/renderer/src/pages/DashboardPage.tsx
 import { useCallback, useState } from 'react';
 import {
   Title,
@@ -10,10 +9,8 @@ import {
   Alert,
   ScrollArea,
   Code,
-  Group,
 } from '@mantine/core';
 import { useConfigStore } from '../store/config.store';
-import { useSyncStore }   from '../store/sync.store';  // ← import your sync store
 
 export function DashboardPage() {
   const sourceAPath   = useConfigStore((s) => s.sourceAPath);
@@ -48,12 +45,6 @@ export function DashboardPage() {
       setDjScanLoading(false);
     }
   };
-
-  // ─── Sync Now state & actions ────────────────────────
-  const previewSync = useSyncStore((s) => s.preview);
-  const runSync     = useSyncStore((s) => s.run);
-  const clearReport = useSyncStore((s) => s.clearReport);
-  const { isSyncing, syncError, syncReport } = useSyncStore();
 
   return (
     <Stack>
@@ -116,36 +107,6 @@ export function DashboardPage() {
         {djScanResult && (
           <Text size="sm" mt="sm">
             Scanned {djScanResult.total} files; updated {djScanResult.updated} records.
-          </Text>
-        )}
-      </Stack>
-
-      {/* ─── Synchronize Tags ────────────────────────────── */}
-      <Stack mt="xl" gap="sm">
-        <Title order={4}>Synchronize Tags</Title>
-        <Group>
-          <Button
-            onClick={previewSync}
-            loading={isSyncing}
-            disabled={!sourceAPath || !sourceBPath}
-          >
-            Preview Sync
-          </Button>
-          <Button
-            onClick={runSync}
-            loading={isSyncing}
-            disabled={syncReport.length === 0}
-          >
-            Run Sync
-          </Button>
-          <Button variant="outline" onClick={clearReport}>
-            Clear Report
-          </Button>
-        </Group>
-        {syncError && <Alert color="red">{syncError}</Alert>}
-        {syncReport.length > 0 && (
-          <Text size="sm">
-            {syncReport.length} files would be updated. Click “Run Sync” to apply.
           </Text>
         )}
       </Stack>
