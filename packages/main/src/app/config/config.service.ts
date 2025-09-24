@@ -1,10 +1,19 @@
 // packages/main/src/app/config/config.service.ts
 
 import { Injectable, Logger, Optional } from '@nestjs/common';
+import { app } from 'electron';
 import * as fsSync from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
+
+interface ConfigEnv extends NodeJS.ProcessEnv {
+  MP3_SYNC_DATA_DIR?: string;
+  MP3_SYNC_CONFIG_FILE?: string;
+  MP3_SYNC_DB_PATH?: string;
+  MP3_SYNC_BACKUP_DIR?: string;
+  MP3_SYNC_LOG_FILE?: string;
+}
 
 export interface AppConfig {
   databasePath:      string | null;
@@ -25,19 +34,69 @@ export class ConfigService {
   private readonly defaultBackupPath: string;
   private readonly defaultDbPath: string;
   private readonly logger = new Logger(ConfigService.name);
+  private readonly env: ConfigEnv;
 
   constructor(@Optional() basePathOverride?: string) {
-    const basePath = basePathOverride
-      ? basePathOverride
-      : path.join(os.tmpdir(), 'mp3-sync-app-data');
+    this.env = process.env;
+    const basePath = basePathOverride ?? this.resolveBasePath();
 
-    this.configFilePath = path.join(basePath, 'config.json');
-    this.defaultDbPath    = path.join(basePath, 'sync_data.db');
-    this.defaultBackupPath = path.join(basePath, 'backups');
-    this.defaultLogPath   = path.join(basePath, 'app.log');
+    this.configFilePath = this.resolveConfigPath(basePath);
+    this.defaultDbPath    = this.resolveDbPath(basePath);
+    this.defaultBackupPath = this.resolveBackupPath(basePath);
+    this.defaultLogPath   = this.resolveLogPath(basePath);
 
+    this.logger.log(`Config base path set to ${basePath}`);
     this.config = this.loadConfigFromFileSync();
     this.logger.log('ConfigService initialized');
+  }
+
+  private resolveBasePath(): string {
+    if (this.env.MP3_SYNC_DATA_DIR) {
+      return this.ensureAbsolutePath(this.env.MP3_SYNC_DATA_DIR, 'MP3_SYNC_DATA_DIR');
+    }
+    if (app && typeof app.getPath === 'function') {
+      try {
+        return app.getPath('userData');
+      } catch (error) {
+        this.logger.warn(`Failed to resolve userData path via Electron, falling back to temp dir: ${(error as Error).message}`);
+      }
+    }
+    return path.join(os.tmpdir(), 'mp3-sync-app-data');
+  }
+
+  private resolveConfigPath(basePath: string): string {
+    if (this.env.MP3_SYNC_CONFIG_FILE) {
+      return this.ensureAbsolutePath(this.env.MP3_SYNC_CONFIG_FILE, 'MP3_SYNC_CONFIG_FILE');
+    }
+    return path.join(basePath, 'config.json');
+  }
+
+  private resolveDbPath(basePath: string): string {
+    const dbOverride = this.env.MP3_SYNC_DB_PATH;
+    return dbOverride
+      ? this.ensureAbsolutePath(dbOverride, 'MP3_SYNC_DB_PATH')
+      : path.join(basePath, 'mp3-sync-app-sync_data.db');
+  }
+
+  private resolveBackupPath(basePath: string): string {
+    const backupOverride = this.env.MP3_SYNC_BACKUP_DIR;
+    return backupOverride
+      ? this.ensureAbsolutePath(backupOverride, 'MP3_SYNC_BACKUP_DIR')
+      : path.join(basePath, 'mp3-sync-app-backups');
+  }
+
+  private resolveLogPath(basePath: string): string {
+    const logOverride = this.env.MP3_SYNC_LOG_FILE;
+    return logOverride
+      ? this.ensureAbsolutePath(logOverride, 'MP3_SYNC_LOG_FILE')
+      : path.join(basePath, 'mp3-sync-app.log');
+  }
+
+  private ensureAbsolutePath(value: string, envKey: keyof ConfigEnv | 'MP3_SYNC_CONFIG_FILE'): string {
+    if (!path.isAbsolute(value)) {
+      throw new Error(`${envKey} must be an absolute path. Got: ${value}`);
+    }
+    return value;
   }
 
   private getDefaults(): AppConfig {

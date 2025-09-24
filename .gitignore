@@ -145,6 +145,7 @@ backups/
 *.tgz
 tmp/
 .temp/
+.webpack/
 
 # Lockfiles other than pnpm's
 **/package-lock.json

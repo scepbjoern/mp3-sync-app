@@ -103,7 +103,7 @@ export class ConfigController implements OnModuleInit {
             }
         });
 
-         ipcMain.handle('app:get-path', async (_event, name: 'userData' | 'logs' | 'backup' | 'db'): Promise<IpcResponse<string>> => {
+         ipcMain.handle('app:get-path', async (_event, name: 'userData' | 'logs' | 'backup' | 'db' | 'config'): Promise<IpcResponse<string>> => {
              const handlerName = 'app:get-path';
              this.logger.log(`IPC Handler: ${handlerName}: ${name}`);
              try {
@@ -123,6 +123,10 @@ export class ConfigController implements OnModuleInit {
                     }
                     case 'db': {
                         requestedPath = this.configService.getDatabasePath();
+                        break;
+                    }
+                    case 'config': {
+                        requestedPath = this.configService.getConfigFilePath();
                         break;
                     }
                     default: {

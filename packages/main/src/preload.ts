@@ -21,7 +21,7 @@ type PathsPayload = Partial<{
 const electronAPI = {
   /* --- App & Version ------------------------------------ */
   getVersion: () => ipcRenderer.invoke('app:get-version'),
-  getAppPath: (name: 'userData' | 'logs' | 'backup' | 'db') =>
+  getAppPath: (name: 'userData' | 'logs' | 'backup' | 'db' | 'config') =>
     ipcRenderer.invoke('app:get-path', name),
 
   /* --- Konfiguration ------------------------------------ */
