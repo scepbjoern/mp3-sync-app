@@ -7,12 +7,12 @@ import {
 import { app, ipcMain, dialog, shell } from 'electron';
 import path from 'path';
 import { FileSystemService } from '../services/file-system.service';
-
-interface IpcResponse<T = any> {
-  success: boolean;
-  data?: T;
-  error?: { message: string; code?: string };
-}
+import {
+  assertNonEmptyString,
+  ipcFailure,
+  ipcSuccess,
+  IpcResponse,
+} from '../ipc/ipc-response';
 
 @Injectable()
 @Controller()
@@ -31,21 +31,14 @@ export class FileSystemController implements OnModuleInit {
     ipcMain.removeHandler(channel);
     ipcMain.handle(channel, async (_evt, dirPath: string): Promise<IpcResponse<string[]>> => {
       this.logger.log(`[${channel}] Path: ${dirPath}`);
-      if (!dirPath || typeof dirPath !== 'string') {
-        const msg = 'Invalid directory path provided.';
-        this.logger.warn(`[${channel}] ${msg}`);
-        return { success: false, error: { message: msg } };
-      }
       try {
-        const fileList = await this.fileSystemService.scanDirectory(dirPath);
+        const safePath = assertNonEmptyString(dirPath, 'Directory path');
+        const fileList = await this.fileSystemService.scanDirectory(safePath);
         this.logger.log(`[${channel}] Found ${fileList.length} MP3 files`);
-        return { success: true, data: fileList };
-      } catch (err: any) {
+        return ipcSuccess(fileList);
+      } catch (err) {
         this.logger.error(`[${channel}]`, err);
-        return {
-          success: false,
-          error: { message: err?.message ?? 'Unknown scan error' },
-        };
+        return ipcFailure(err, 'Failed to scan directory');
       }
     });
   }
@@ -54,12 +47,12 @@ export class FileSystemController implements OnModuleInit {
     // ─── select-directory ─────────────────────────────
     const selectChannel = 'dialog:select-directory';
     ipcMain.removeHandler(selectChannel);
-    ipcMain.handle(selectChannel, async () => {
+    ipcMain.handle(selectChannel, async (): Promise<IpcResponse<string | null>> => {
       const result = await dialog.showOpenDialog({ properties: ['openDirectory'] });
       if (result.canceled || result.filePaths.length === 0) {
-        return null;
+        return ipcSuccess(null);
       }
-      return result.filePaths[0];
+      return ipcSuccess(result.filePaths[0]);
     });
 
     // ─── show-config-file ───────────────────────────
@@ -68,7 +61,7 @@ export class FileSystemController implements OnModuleInit {
     ipcMain.handle(showCfgChannel, async (): Promise<IpcResponse<void>> => {
       const cfgPath = path.join(app.getPath('userData'), 'config.json');
       shell.showItemInFolder(cfgPath);
-      return { success: true };
+      return ipcSuccess();
     });
 
     this.logger.log('Dialog IPC handlers registered.');

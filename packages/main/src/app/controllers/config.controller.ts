@@ -2,6 +2,14 @@
 import { Controller, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ipcMain, dialog, app, shell } from 'electron'; // Import Electron modules
 import { ConfigService, AppConfig } from '../config/config.service'; // Import ConfigService and interface
+import {
+    assertEnum,
+    assertOptionalString,
+    assertStringArray,
+    ipcFailure,
+    ipcSuccess,
+    IpcResponse,
+} from '../ipc/ipc-response';
 
 // Define types for IPC payloads (optional but good practice)
 interface SetPathsPayload {
@@ -10,13 +18,6 @@ interface SetPathsPayload {
     databasePath?: string | null;
     backupPath?: string | null;
     logFilePath?: string | null;
-}
-
-// Define a standard response structure
-interface IpcResponse<T = any> {
-    success: boolean;
-    data?: T;
-    error?: { message: string; code?: string };
 }
 
 @Injectable() // Controllers are injectable providers
@@ -45,12 +46,10 @@ export class ConfigController implements OnModuleInit {
                     bidirectionalTags: this.configService.getBidirectionalTags(),
                     tagsToSync: this.configService.getTagsToSync(),
                 };
-                return { success: true, data };
+                return ipcSuccess(data);
             } catch (err) {
                 this.logger.error(`Error handling ${handlerName}:`, err);
-                // Type Guard for error message
-                const message = (err instanceof Error) ? err.message : 'Failed to get config due to unknown error';
-                return { success: false, error: { message } };
+                return ipcFailure(err, 'Failed to get config due to unknown error');
             }
         });
 
@@ -61,33 +60,29 @@ export class ConfigController implements OnModuleInit {
                 // Update only the paths provided in the payload
                 // Using Promise.all to run saves potentially concurrently (though saveConfig is likely sequential)
                 const updates: Promise<void>[] = [];
-                if (paths.sourceAPath !== undefined) updates.push(this.configService.setSourceAPath(paths.sourceAPath));
-                if (paths.sourceBPath !== undefined) updates.push(this.configService.setSourceBPath(paths.sourceBPath));
-                if (paths.databasePath !== undefined) updates.push(this.configService.setDatabasePath(paths.databasePath));
-                if (paths.backupPath !== undefined) updates.push(this.configService.setBackupPath(paths.backupPath));
-                if (paths.logFilePath !== undefined) updates.push(this.configService.setLogFilePath(paths.logFilePath));
+                if (paths.sourceAPath !== undefined) updates.push(this.configService.setSourceAPath(assertOptionalString(paths.sourceAPath, 'Source A path')));
+                if (paths.sourceBPath !== undefined) updates.push(this.configService.setSourceBPath(assertOptionalString(paths.sourceBPath, 'Source B path')));
+                if (paths.databasePath !== undefined) updates.push(this.configService.setDatabasePath(assertOptionalString(paths.databasePath, 'Database path')));
+                if (paths.backupPath !== undefined) updates.push(this.configService.setBackupPath(assertOptionalString(paths.backupPath, 'Backup path')));
+                if (paths.logFilePath !== undefined) updates.push(this.configService.setLogFilePath(assertOptionalString(paths.logFilePath, 'Log file path')));
                 await Promise.all(updates);
-                return { success: true };
+                return ipcSuccess();
             } catch (err) {
                 this.logger.error(`Error handling ${handlerName}:`, err);
-                // Type Guard for error message
-                const message = (err instanceof Error) ? err.message : 'Failed to set paths due to unknown error';
-                return { success: false, error: { message } };
+                return ipcFailure(err, 'Failed to set paths due to unknown error');
             }
         });
 
         ipcMain.handle('config:setLogLevel', async (_event, level: string): Promise<IpcResponse<void>> => {
             const handlerName = 'config:setLogLevel';
             this.logger.log(`IPC Handler: ${handlerName}: ${level}`);
-             try {
-                await this.configService.setLogLevel(level);
-                // TODO: Signal logger service to update level dynamically if needed
-                return { success: true };
+            try {
+                const safeLevel = assertEnum(level, ['error', 'warn', 'info', 'verbose', 'debug'], 'Log level');
+                await this.configService.setLogLevel(safeLevel);
+                return ipcSuccess();
             } catch (err) {
                  this.logger.error(`Error handling ${handlerName}:`, err);
-                 // Type Guard for error message
-                 const message = (err instanceof Error) ? err.message : 'Failed to set log level due to unknown error';
-                return { success: false, error: { message } };
+                return ipcFailure(err, 'Failed to set log level due to unknown error');
             }
         });
 
@@ -99,14 +94,12 @@ export class ConfigController implements OnModuleInit {
                 // For now, it will open non-modally. Refine later if needed.
                 const result = await dialog.showOpenDialog({ properties: ['openDirectory'] });
                 if (result.canceled || result.filePaths.length === 0) {
-                    return { success: true, data: null }; // User cancelled
+                    return ipcSuccess(null);
                 }
-                return { success: true, data: result.filePaths[0] }; // Return selected path
+                return ipcSuccess(result.filePaths[0]); // Return selected path
             } catch (err) {
                 this.logger.error(`Error handling ${handlerName}:`, err);
-                 // Type Guard for error message
-                const message = (err instanceof Error) ? err.message : 'Failed to show directory dialog due to unknown error';
-                return { success: false, error: { message } };
+                return ipcFailure(err, 'Failed to show directory dialog due to unknown error');
             }
         });
 
@@ -137,12 +130,10 @@ export class ConfigController implements OnModuleInit {
                         throw new Error(`Unknown path name: ${exhaustiveCheck}`);
                     }
                 }
-                 return { success: true, data: requestedPath };
+                 return ipcSuccess(requestedPath);
              } catch (err) {
                   this.logger.error(`Error handling ${handlerName} (${name}):`, err);
-                 // Type Guard for error message
-                 const message = (err instanceof Error) ? err.message : `Failed to get path ${name}`;
-                 return { success: false, error: { message } };
+                 return ipcFailure(err, `Failed to get path ${name}`);
              }
          });
 
@@ -151,12 +142,10 @@ export class ConfigController implements OnModuleInit {
              const handlerName = 'app:get-version';
              this.logger.log(`IPC Handler: ${handlerName}`);
              try {
-                 return { success: true, data: app.getVersion() };
+                 return ipcSuccess(app.getVersion());
              } catch (err) {
                   this.logger.error(`Error handling ${handlerName}:`, err);
-                  // Type Guard for error message
-                  const message = (err instanceof Error) ? err.message : 'Failed to get app version';
-                 return { success: false, error: { message } };
+                 return ipcFailure(err, 'Failed to get app version');
              }
         });
 
@@ -164,12 +153,12 @@ export class ConfigController implements OnModuleInit {
             const handlerName = 'config:setTagsToSync';
             this.logger.log(`IPC Handler: ${handlerName}`, tags);
             try {
-                await this.configService.setTagsToSync(tags);
-                return { success: true };
+                const safeTags = Array.isArray(tags) ? assertStringArray(tags, 'Tags to sync') : tags;
+                await this.configService.setTagsToSync(safeTags);
+                return ipcSuccess();
             } catch (err) {
                 this.logger.error(`Error handling ${handlerName}:`, err);
-                const message = (err instanceof Error) ? err.message : 'Failed to set tags to sync';
-                return { success: false, error: { message } };
+                return ipcFailure(err, 'Failed to set tags to sync');
             }
         });
     
@@ -177,16 +166,12 @@ export class ConfigController implements OnModuleInit {
             const handlerName = 'config:setBidirectionalTags';
             this.logger.log(`IPC Handler: ${handlerName}`, tags);
             try {
-                // Basic validation could be added here if needed
-                if (!Array.isArray(tags)) {
-                    throw new Error('Bidirectional tags must be an array of strings.');
-                }
-                await this.configService.setBidirectionalTags(tags);
-                return { success: true };
+                const safeTags = assertStringArray(tags, 'Bidirectional tags');
+                await this.configService.setBidirectionalTags(safeTags);
+                return ipcSuccess();
             } catch (err) {
                 this.logger.error(`Error handling ${handlerName}:`, err);
-                const message = (err instanceof Error) ? err.message : 'Failed to set bidirectional tags';
-                return { success: false, error: { message } };
+                return ipcFailure(err, 'Failed to set bidirectional tags');
             }
         });
 
@@ -202,11 +187,10 @@ export class ConfigController implements OnModuleInit {
                 }
 
                 shell.showItemInFolder(configPath);
-                return { success: true };
+                return ipcSuccess();
             } catch (err) {
                 this.logger.error(`Error handling ${handlerName}:`, err);
-                const message = (err instanceof Error) ? err.message : 'Failed to show config file location';
-                return { success: false, error: { message } };
+                return ipcFailure(err, 'Failed to show config file location');
             }
         });
 

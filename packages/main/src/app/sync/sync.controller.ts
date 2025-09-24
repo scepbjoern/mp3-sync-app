@@ -1,12 +1,7 @@
 import { Injectable, Logger, OnModuleInit, Controller } from '@nestjs/common';
 import { ipcMain } from 'electron';
 import { SyncService, PreviewEntry } from './sync.service';
-
-interface IpcResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: { message: string };
-}
+import { ipcFailure, ipcSuccess, IpcResponse } from '../ipc/ipc-response';
 
 @Injectable()
 @Controller()
@@ -19,10 +14,10 @@ export class SyncController implements OnModuleInit {
     ipcMain.handle('sync:preview', async (): Promise<IpcResponse<PreviewEntry[]>> => {
       try {
         const data = await this.sync.previewSync();
-        return { success: true, data };
-      } catch (err: any) {
+        return ipcSuccess(data);
+      } catch (err) {
         this.logger.error('sync:preview failed', err);
-        return { success: false, error: { message: err.message } };
+        return ipcFailure(err, 'Failed to preview sync');
       }
     });
 
@@ -32,10 +27,10 @@ export class SyncController implements OnModuleInit {
     }>> => {
       try {
         const data = await this.sync.runSync();
-        return { success: true, data };
-      } catch (err: any) {
+        return ipcSuccess(data);
+      } catch (err) {
         this.logger.error('sync:run failed', err);
-        return { success: false, error: { message: err.message } };
+        return ipcFailure(err, 'Failed to run sync');
       }
     });
   }
