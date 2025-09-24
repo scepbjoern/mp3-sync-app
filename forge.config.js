@@ -44,7 +44,7 @@ module.exports = {
           new CopyWebpackPlugin({
             patterns: [
               {
-                from: path.resolve(__dirname, 'node_modules/.prisma/client/query_engine-windows.dll.node'),
+                from: path.resolve(__dirname, 'node_modules/.prisma/client'),
                 to:   path.resolve(__dirname, '.webpack/main/.prisma/client'),
               },
             ],
