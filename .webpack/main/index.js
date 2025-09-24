@@ -117412,6 +117412,9 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 var ConfigController_1;
 var _a;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
@@ -117419,6 +117422,7 @@ exports.ConfigController = void 0;
 // packages/main/src/app/controllers/config.controller.ts
 const common_1 = __webpack_require__(/*! @nestjs/common */ "./packages/main/node_modules/@nestjs/common/index.js");
 const electron_1 = __webpack_require__(/*! electron */ "electron"); // Import Electron modules
+const node_path_1 = __importDefault(__webpack_require__(/*! node:path */ "node:path"));
 const config_service_1 = __webpack_require__(/*! ../config/config.service */ "./packages/main/src/app/config/config.service.ts"); // Import ConfigService and interface
 const ipc_response_1 = __webpack_require__(/*! ../ipc/ipc-response */ "./packages/main/src/app/ipc/ipc-response.ts");
 let ConfigController = ConfigController_1 = class ConfigController {
@@ -117592,7 +117596,11 @@ let ConfigController = ConfigController_1 = class ConfigController {
                 if (!configPath) {
                     throw new Error('Configuration file path is not set.');
                 }
-                electron_1.shell.showItemInFolder(configPath);
+                const configDir = node_path_1.default.dirname(configPath);
+                const openResult = await electron_1.shell.openPath(configDir);
+                if (openResult) {
+                    throw new Error(openResult);
+                }
                 return (0, ipc_response_1.ipcSuccess)();
             }
             catch (err) {

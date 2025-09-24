@@ -1,6 +1,7 @@
 // packages/main/src/app/controllers/config.controller.ts
 import { Controller, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ipcMain, dialog, app, shell } from 'electron'; // Import Electron modules
+import path from 'node:path';
 import { ConfigService, AppConfig } from '../config/config.service'; // Import ConfigService and interface
 import {
     assertEnum,
@@ -190,7 +191,12 @@ export class ConfigController implements OnModuleInit {
                     throw new Error('Configuration file path is not set.');
                 }
 
-                shell.showItemInFolder(configPath);
+                const configDir = path.dirname(configPath);
+                const openResult = await shell.openPath(configDir);
+                if (openResult) {
+                    throw new Error(openResult);
+                }
+
                 return ipcSuccess();
             } catch (err) {
                 this.logger.error(`Error handling ${handlerName}:`, err);
