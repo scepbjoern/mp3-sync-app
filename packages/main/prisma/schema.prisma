@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./sync_data.db"
+  url      = env("DATABASE_URL")
   // Removed engineType and previewFeatures
 }
 

@@ -1,7 +1,11 @@
 // packages/main/src/app/pairing/pairing.controller.ts
 import { Controller, Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { ipcMain } from 'electron';
-import { PairingService } from './pairing.service';
+import {
+  PairingScanOptions,
+  PairingScanResult,
+  PairingService,
+} from './pairing.service';
 
 interface IpcResponse<T = unknown> {
   success: boolean;
@@ -30,6 +34,20 @@ export class PairingController implements OnModuleInit {
 
   onModuleInit() {
     ipcMain.handle(
+      'pairing:start-initial-scan',
+      async (_evt, options: PairingScanOptions = {}): Promise<IpcResponse<PairingScanResult>> => {
+        this.logger.log(`Initial pairing scan requested (includeNonDj=${options.includeNonDj ?? false})`);
+        try {
+          const result = await this.pairing.initialScan(options);
+          return { success: true, data: result };
+        } catch (error: unknown) {
+          this.logger.error('pairing:start-initial-scan error', error);
+          return { success: false, error: { message: toErrorMessage(error) } };
+        }
+      },
+    );
+
+    ipcMain.handle(
       'pairing:save-mappings',
       async (_evt, entries: PairingEntry[]): Promise<IpcResponse<{ count: number }>> => {
         this.logger.log(`Saving ${entries.length} mappings…`);
@@ -38,6 +56,20 @@ export class PairingController implements OnModuleInit {
           return { success: true, data: { count } };
         } catch (error: unknown) {
           this.logger.error('pairing:save-mappings error', error);
+          return { success: false, error: { message: toErrorMessage(error) } };
+        }
+      },
+    );
+
+    ipcMain.handle(
+      'pairing:submit-decisions',
+      async (_evt, entries: PairingEntry[]): Promise<IpcResponse<{ count: number }>> => {
+        this.logger.log(`Submit decisions: ${entries.length} entries…`);
+        try {
+          const count = await this.pairing.upsertMappings(entries);
+          return { success: true, data: { count } };
+        } catch (error: unknown) {
+          this.logger.error('pairing:submit-decisions error', error);
           return { success: false, error: { message: toErrorMessage(error) } };
         }
       },

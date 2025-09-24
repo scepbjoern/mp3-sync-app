@@ -57,6 +57,10 @@ const electronAPI = {
   getMappings:       () => ipcRenderer.invoke('pairing:get-mappings'),
   pairingSaveMappings: (entries: { sourceAPath: string; sourceBPath: string }[]) =>
     ipcRenderer.invoke('pairing:save-mappings', entries),
+  pairingSubmitDecisions: (entries: { sourceAPath: string; sourceBPath: string }[]) =>
+    ipcRenderer.invoke('pairing:submit-decisions', entries),
+  pairingStartInitialScan: (options?: { includeNonDj?: boolean }) =>
+    ipcRenderer.invoke('pairing:start-initial-scan', options),
 
   previewSync:             () => ipcRenderer.invoke('sync:preview'),
   runSync:                 () => ipcRenderer.invoke('sync:run'),

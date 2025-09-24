@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "dev": "electron-forge start",
+    "db:sync": "pwsh ./sync-db.ps1",
     "build": "electron-forge make",
     "postinstall": "npm run prisma:generate",
     "prisma:generate": "prisma generate --schema=packages/main/prisma/schema.prisma",

@@ -1,177 +1,267 @@
 // packages/renderer/src/pages/PairingPage.tsx
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  Title, Button, Stack, Loader, Alert, ScrollArea,
-  Table, Checkbox, Text, Group,
+  Title,
+  Button,
+  Stack,
+  Loader,
+  Alert,
+  ScrollArea,
+  Table,
+  Checkbox,
+  Text,
+  Group,
+  Badge,
+  Switch,
+  Divider,
 } from '@mantine/core';
 import { useConfigStore } from '../store/config.store';
 
-interface FileEntry { path: string; lastModifiedAt: string | null; }
-interface Suggestion { sourcePath: string; sourceName: string; destPath: string | null; destName: string | null; }
+type PairingSuggestion = import('../global').PairingSuggestion;
+type PairingScanResult = import('../global').PairingScanResult;
+type UnmatchedSourceEntry = import('../global').UnmatchedSourceEntry;
 
 export function PairingPage() {
-  const sourceAPath = useConfigStore(s => s.sourceAPath)!;
-  const sourceBPath = useConfigStore(s => s.sourceBPath)!;
+  const sourceAPath = useConfigStore((s) => s.sourceAPath);
+  const sourceBPath = useConfigStore((s) => s.sourceBPath);
 
-  const [srcList , setSrcList ] = useState<FileEntry[]>([]);
-  const [dstList , setDstList ] = useState<FileEntry[]>([]);
+  const [showOnlyDj, setShowOnlyDj] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [error  , setError  ] = useState<string | null>(null);
-
-  // bereits gespeicherte Mappings
-  const [existing, setExisting] = useState<Set<string>>(new Set());
-
-  const [selected  , setSelected   ] = useState<Set<string>>(new Set());
-  const [saving    , setSaving     ] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [scanResult, setScanResult] = useState<PairingScanResult | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [saving, setSaving] = useState(false);
   const [saveResult, setSaveResult] = useState<string | null>(null);
 
-  // 1) Quelle, Ziel & existierende Mappings laden
-  useEffect(() => {
+  const suggestions: PairingSuggestion[] = scanResult?.suggestions ?? [];
+  const unmatchedSource: UnmatchedSourceEntry[] = scanResult?.unmatchedSource ?? [];
+  const unmatchedDest: string[] = scanResult?.unmatchedDest ?? [];
+
+  const runScan = useCallback(async () => {
+    const includeNonDj = !showOnlyDj;
     if (!sourceAPath || !sourceBPath) {
-      setError('Bitte beider Pfade in den Settings setzen.');
+      setError('Bitte Source A und Source B Pfade in den Einstellungen setzen.');
+      setScanResult(null);
+      setSelected(new Set());
       return;
     }
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        // a) In-Library Files
-        const resA = await window.electronAPI.getMappings(); // hier holen wir jetzt auch die existierenden Mappings
-        // resA.data enthält alle gespeicherten pairs
-        if (!resA.success || !resA.data) throw new Error(resA.error?.message);
-        const mapped = new Set(
-          resA.data.map((r: { sourceAPath: string; sourceBPath: string }) => r.sourceAPath)
-        );
-        setExisting(mapped);
 
-        const resLib = await window.electronAPI.getInLibraryFiles();
-        if (!resLib.success || !resLib.data) throw new Error(resLib.error?.message);
-        setSrcList(resLib.data);
-
-        // b) Destination scannen
-        const resB = await window.electronAPI.scanDirectory(sourceBPath);
-        if (!resB.success || !resB.data) throw new Error(resB.error?.message);
-        setDstList(resB.data.map(p => ({ path: p, lastModifiedAt: null })));
-
-        // c) Vorauswahl: bereits gespeicherte Einträge markieren
-        setSelected(new Set(mapped));
-      } catch (e: any) {
-        setError(e.message);
-      } finally {
-        setLoading(false);
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await window.electronAPI.pairingStartInitialScan({ includeNonDj });
+      if (!res.success || !res.data) {
+        throw new Error(res.error?.message ?? 'Pairing-Scan fehlgeschlagen');
       }
-    })();
-  }, [sourceAPath, sourceBPath]);
+      setScanResult(res.data);
+      setSelected(new Set(res.data.suggestions.map((s) => s.sourcePath)));
+    } catch (err: any) {
+      setError(err?.message ?? String(err));
+      setScanResult(null);
+      setSelected(new Set());
+    } finally {
+      setLoading(false);
+    }
+  }, [showOnlyDj, sourceAPath, sourceBPath]);
 
-  // 2) Matching-Logik wie gehabt…
-  const suggestions: Suggestion[] = useMemo(() => {
-    const destMap = new Map<string, FileEntry>();
-    dstList.forEach(d => destMap.set(d.path.split(/[\\/]/).pop()!.toLowerCase(), d));
-    const regex = /^(\d+)_([^_]+)_(.+)\.mp3$/i;
-    return srcList.map(src => {
-      const srcName = src.path.split(/[\\/]/).pop()!;
-      const m = regex.exec(srcName);
-      if (m) {
-        const [, track, artist, title] = m;
-        const destName = `${artist}_${track}_${title}.mp3`;
-        const match = destMap.get(destName.toLowerCase());
-        return { sourcePath: src.path, sourceName: srcName, destPath: match?.path ?? null, destName: match ? destName : null };
-      }
-      return { sourcePath: src.path, sourceName: srcName, destPath: null, destName: null };
-    });
-  }, [srcList, dstList]);
+  useEffect(() => {
+    if (sourceAPath && sourceBPath) {
+      void runScan();
+    }
+  }, [sourceAPath, sourceBPath, runScan]);
 
-  const allMatches = suggestions.filter(s => s.destPath).map(s => s.sourcePath);
-
-  const toggle = useCallback((src: string) => {
-    setSelected(prev => {
+  const toggleSelection = (src: string) => {
+    setSelected((prev) => {
       const next = new Set(prev);
-      next.has(src) ? next.delete(src) : next.add(src);
+      if (next.has(src)) {
+        next.delete(src);
+      } else {
+        next.add(src);
+      }
       return next;
     });
-  }, []);
+  };
 
-  const selectAll = () => setSelected(new Set(allMatches));
-  const clearAll  = () => setSelected(new Set());
+  const selectAll = () => setSelected(new Set(suggestions.map((s) => s.sourcePath)));
+  const clearAll = () => setSelected(new Set());
 
-  // 3) Speichern
   const saveMappings = async () => {
     setSaving(true);
     setSaveResult(null);
+
     const toSave = suggestions
-      .filter(s => selected.has(s.sourcePath) && s.destPath)
-      .map(s => ({ sourceAPath: s.sourcePath, sourceBPath: s.destPath! }));
+      .filter((s) => selected.has(s.sourcePath))
+      .map((s) => ({ sourceAPath: s.sourcePath, sourceBPath: s.suggestedDestPath }));
+
     try {
-      const res = await window.electronAPI.pairingSaveMappings(toSave);
-      if (res.success && res.data) {
-        setSaveResult(`Es wurden ${res.data.count} Mappings gespeichert.`);
-        // Update existing & reset Selection
-        setExisting(prev => new Set([...prev, ...toSave.map(t => t.sourceAPath)]));
-        setSelected(new Set());
-      } else {
-        throw new Error(res.error?.message || 'Speichern fehlgeschlagen');
+      const res = await window.electronAPI.pairingSubmitDecisions(toSave);
+      if (!res.success || !res.data) {
+        throw new Error(res.error?.message ?? 'Speichern fehlgeschlagen');
       }
-    } catch (e: any) {
-      setSaveResult(`Fehler: ${e.message}`);
+      setSaveResult(`Es wurden ${res.data.count} Mappings gespeichert.`);
+      await runScan();
+    } catch (err: any) {
+      setSaveResult(`Fehler: ${err?.message ?? String(err)}`);
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
-    return <Stack align="center" justify="center" style={{ height: 300 }}><Loader/></Stack>;
+  if (!sourceAPath || !sourceBPath) {
+    return (
+      <Stack p="md" gap="lg">
+        <Title order={2}>Initial Pairing</Title>
+        <Alert color="red">Bitte zuerst Source A und Source B Pfade in den Einstellungen hinterlegen.</Alert>
+      </Stack>
+    );
   }
 
   return (
     <Stack p="md" gap="lg">
       <Title order={2}>Initial Pairing</Title>
-      {error && <Alert color="red">{error}</Alert>}
 
-      <Group gap="xs">
-        <Button onClick={selectAll} disabled={!allMatches.length}>Alle Matches auswählen ({allMatches.length})</Button>
-        <Button variant="outline" onClick={clearAll} disabled={!selected.size}>Auswahl aufheben</Button>
+      <Group justify="space-between" align="center">
+        <Switch
+          label="Only show DJ-Library files"
+          checked={showOnlyDj}
+          onChange={(event) => setShowOnlyDj(event.currentTarget.checked)}
+        />
+        <Group gap="xs">
+          <Button variant="subtle" onClick={() => runScan()} disabled={loading}>
+            Neu scannen
+          </Button>
+        </Group>
       </Group>
 
-      <Button fullWidth mt="sm" onClick={saveMappings} disabled={saving || !selected.size} loading={saving}>
-        Speichere {selected.size} Mapping(s)
-      </Button>
-      {saveResult && <Alert mt="sm" color={saveResult.startsWith('Fehler') ? 'red' : 'green'}>{saveResult}</Alert>}
+      {loading && (
+        <Stack align="center" justify="center" style={{ height: 200 }}>
+          <Loader />
+        </Stack>
+      )}
 
-      <ScrollArea h={400} mt="md">
-        <Table highlightOnHover>
-          <thead>
-            <tr>
-              <th style={{ width: 40 }}>
-                <Checkbox
-                  indeterminate={selected.size > 0 && selected.size < allMatches.length}
-                  checked={allMatches.length > 0 && selected.size === allMatches.length}
-                  onChange={e => e.currentTarget.checked ? selectAll() : clearAll()}
-                />
-              </th>
-              <th>Source Datei</th>
-              <th>Vorgeschlagene Destination</th>
-            </tr>
-          </thead>
-          <tbody>
-            {suggestions.map(s => {
-              const isExisting = existing.has(s.sourcePath);
-              return (
-                <tr key={s.sourcePath} style={isExisting ? { opacity: 0.5 } : undefined}>
-                  <td>
+      {error && !loading && <Alert color="red">{error}</Alert>}
+
+      {!loading && !error && (
+        <>
+          <Group gap="md">
+            <Text size="sm">Vorgeschlagene Paare: {suggestions.length}</Text>
+            <Text size="sm">Unmatched Source: {unmatchedSource.length}</Text>
+            <Text size="sm">Unmatched Destination: {unmatchedDest.length}</Text>
+          </Group>
+
+          {unmatchedSource.length > 0 && (
+            <Alert color="yellow" title="Nicht zugeordnete Source-Dateien">
+              <Text size="sm">
+                {unmatchedSource.slice(0, 5).map((entry) => entry.sourceName).join(', ') || 'Keine Details verfügbar.'}
+                {unmatchedSource.length > 5 && ` … (+${unmatchedSource.length - 5} weitere)`}
+              </Text>
+              <Text size="sm" c="dimmed">
+                Dateien können gefiltert sein, keinen Kandidaten haben oder mehrere Kandidaten besitzen.
+              </Text>
+            </Alert>
+          )}
+
+          {unmatchedDest.length > 0 && (
+            <Alert color="blue" title="Unzugeordnete Destination-Dateien">
+              <Text size="sm">
+                {unmatchedDest.slice(0, 5).map((p) => pathName(p)).join(', ') || 'Keine Details verfügbar.'}
+                {unmatchedDest.length > 5 && ` … (+${unmatchedDest.length - 5} weitere)`}
+              </Text>
+            </Alert>
+          )}
+
+          <Group gap="xs">
+            <Button onClick={selectAll} disabled={suggestions.length === 0}>
+              Alle auswählen ({suggestions.length})
+            </Button>
+            <Button variant="outline" onClick={clearAll} disabled={selected.size === 0}>
+              Auswahl aufheben
+            </Button>
+          </Group>
+
+          <Button
+            fullWidth
+            mt="sm"
+            onClick={saveMappings}
+            disabled={saving || selected.size === 0}
+            loading={saving}
+          >
+            Speichere {selected.size} Mapping(s)
+          </Button>
+          {saveResult && (
+            <Alert mt="sm" color={saveResult.startsWith('Fehler') ? 'red' : 'green'}>
+              {saveResult}
+            </Alert>
+          )}
+
+          <Divider label="Vorschläge" mt="md" />
+
+          <ScrollArea h={400} mt="sm">
+            <Table highlightOnHover striped>
+              <thead>
+                <tr>
+                  <th style={{ width: 36 }}>
                     <Checkbox
-                      disabled={!s.destPath || isExisting}
-                      checked={selected.has(s.sourcePath)}
-                      onChange={() => toggle(s.sourcePath)}
+                      indeterminate={selected.size > 0 && selected.size < suggestions.length}
+                      checked={suggestions.length > 0 && selected.size === suggestions.length}
+                      onChange={(event) => (event.currentTarget.checked ? selectAll() : clearAll())}
                     />
-                  </td>
-                  <td title={s.sourcePath}>{s.sourceName}</td>
-                  <td>{s.destName ?? <Text c="dimmed">— kein Match —</Text>}</td>
+                  </th>
+                  <th>Source</th>
+                  <th>DJ-Library</th>
+                  <th>Destination</th>
+                  <th>Match</th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </Table>
-      </ScrollArea>
+              </thead>
+              <tbody>
+                {suggestions.map((suggestion) => (
+                  <tr key={suggestion.sourcePath}>
+                    <td>
+                      <Checkbox
+                        checked={selected.has(suggestion.sourcePath)}
+                        onChange={() => toggleSelection(suggestion.sourcePath)}
+                      />
+                    </td>
+                    <td title={suggestion.sourcePath}>
+                      <Text size="sm" fw={500}>
+                        {suggestion.sourceName}
+                      </Text>
+                    </td>
+                    <td>
+                      <Badge color={suggestion.inDjLibrary ? 'green' : 'gray'}>
+                        {suggestion.inDjLibrary ? 'Ja' : 'Nein'}
+                      </Badge>
+                    </td>
+                    <td title={suggestion.suggestedDestPath}>
+                      <Text size="sm">{pathName(suggestion.suggestedDestPath)}</Text>
+                    </td>
+                    <td>
+                      <Badge color={suggestion.matchType === 'pattern' ? 'blue' : 'orange'}>
+                        {suggestion.matchType === 'pattern' ? 'Pattern' : 'Tags'}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+                {suggestions.length === 0 && (
+                  <tr>
+                    <td colSpan={5}>
+                      <Text size="sm" c="dimmed" ta="center">
+                        Keine Vorschläge gefunden.
+                      </Text>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </Table>
+          </ScrollArea>
+        </>
+      )}
     </Stack>
   );
+}
+
+function pathName(fullPath?: string): string {
+  if (!fullPath) return '—';
+  const parts = fullPath.split(/[/\\]/);
+  return parts[parts.length - 1] ?? fullPath;
 }

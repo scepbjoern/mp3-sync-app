@@ -29,6 +29,16 @@ export interface ElectronConfigAPI {
   pairingSaveMappings(
     entries: { sourceAPath: string; sourceBPath: string }[]
   ): Promise<{ success: boolean; data?: { count: number }; error?: { message: string } }>;
+  pairingSubmitDecisions(
+    entries: { sourceAPath: string; sourceBPath: string }[]
+  ): Promise<{ success: boolean; data?: { count: number }; error?: { message: string } }>;
+  pairingStartInitialScan(
+    options?: { includeNonDj?: boolean }
+  ): Promise<{
+    success: boolean;
+    data?: PairingScanResult;
+    error?: { message: string };
+  }>;
 
   previewSync(): Promise<{ success: boolean; data?: PreviewEntry[]; error?: { message: string } }>;
   runSync():     Promise<{ success: boolean; data?: { applied: number; conflicts: { source: string; tag: string; a: any; b: any }[] }; error?: { message: string } }>;
@@ -56,6 +66,31 @@ export interface PreviewEntry {
   destPath:       string;
   pendingUpdates: Array<{ tag: string; from: any; to: any }>;
   conflicts?:     Array<{ tag: string; a: any; b: any }>;
+}
+
+export type PairingMatchType = 'pattern' | 'tags';
+export type UnmatchedReason = 'filtered' | 'no-dest' | 'ambiguous';
+
+export interface PairingSuggestion {
+  sourcePath: string;
+  sourceName: string;
+  inDjLibrary: boolean;
+  suggestedDestPath: string;
+  matchType: PairingMatchType;
+}
+
+export interface UnmatchedSourceEntry {
+  sourcePath: string;
+  sourceName: string;
+  inDjLibrary: boolean;
+  reason: UnmatchedReason;
+  candidateDestPaths?: string[];
+}
+
+export interface PairingScanResult {
+  suggestions: PairingSuggestion[];
+  unmatchedSource: UnmatchedSourceEntry[];
+  unmatchedDest: string[];
 }
 
 declare global {
