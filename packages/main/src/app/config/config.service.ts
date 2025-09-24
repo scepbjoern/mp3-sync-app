@@ -106,7 +106,7 @@ export class ConfigService {
       sourceAPath:       null,
       sourceBPath:       null,
       tagsToSync:        'ALL',
-      bidirectionalTags: ['TKEY', 'TBP', 'TXXX:EnergyLevel'],
+      bidirectionalTags: ['TKEY', 'TBPM', 'TXXX:EnergyLevel'],
       logFilePath:       null,
       logLevel:          'info',
     };
