@@ -5,7 +5,7 @@
     "esModuleInterop": true, // Enables compatibility with CommonJS modules
     "skipLibCheck": true, // Skip type checking of declaration files (speeds up compilation)
     "target": "ES2022", // Target latest stable ECMAScript features
-    "allowJs": true, // Allow JavaScript files to be compiled
+    "allowJs": false, // Do not compile plain JavaScript files by default
     "resolveJsonModule": true, // Allow importing JSON files
     "moduleDetection": "force", // Treat files as modules even if they don't have imports/exports
     "isolatedModules": true, // Ensure each file can be safely transpiled without relying on other imports (good for build tools)

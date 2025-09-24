@@ -126,6 +126,10 @@ export class ConfigService {
     return this.config.logLevel;
   }
 
+  getConfigFilePath(): string {
+    return this.configFilePath;
+  }
+
   async setDatabasePath(v: string | null) {
     this.config.databasePath = v;
     await this.persist();

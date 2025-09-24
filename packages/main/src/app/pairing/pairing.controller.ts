@@ -3,11 +3,23 @@ import { Controller, Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { ipcMain } from 'electron';
 import { PairingService } from './pairing.service';
 
-interface IpcResponse<T = any> {
+interface IpcResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: { message: string };
 }
+
+type PairingEntry = {
+  sourceAPath: string;
+  sourceBPath: string;
+};
+
+const toErrorMessage = (error: unknown): string => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return typeof error === 'string' ? error : 'Unknown error';
+};
 
 @Injectable()
 @Controller()
@@ -19,25 +31,25 @@ export class PairingController implements OnModuleInit {
   onModuleInit() {
     ipcMain.handle(
       'pairing:save-mappings',
-      async (_evt, entries: { sourceAPath: string; sourceBPath: string }[]): Promise<IpcResponse<{ count: number }>> => {
+      async (_evt, entries: PairingEntry[]): Promise<IpcResponse<{ count: number }>> => {
         this.logger.log(`Saving ${entries.length} mappings…`);
         try {
           const count = await this.pairing.upsertMappings(entries);
           return { success: true, data: { count } };
-        } catch (err: any) {
-          this.logger.error('pairing:save-mappings error', err);
-          return { success: false, error: { message: err.message } };
+        } catch (error: unknown) {
+          this.logger.error('pairing:save-mappings error', error);
+          return { success: false, error: { message: toErrorMessage(error) } };
         }
       },
     );
 
-    ipcMain.handle('pairing:get-mappings', async (): Promise<IpcResponse<{ sourceAPath: string; sourceBPath: string }[]>> => {
+    ipcMain.handle('pairing:get-mappings', async (): Promise<IpcResponse<PairingEntry[]>> => {
         try {
           const mappings = await this.pairing.getMappings();
           return { success: true, data: mappings };
-        } catch (err: any) {
-          this.logger.error('Error in pairing:get-mappings', err);
-          return { success: false, error: { message: err.message } };
+        } catch (error: unknown) {
+          this.logger.error('Error in pairing:get-mappings', error);
+          return { success: false, error: { message: toErrorMessage(error) } };
         }
       });
 

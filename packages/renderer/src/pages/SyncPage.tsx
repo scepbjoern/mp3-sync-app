@@ -60,7 +60,7 @@ export function SyncPage() {
           </td>
           <td>{c.tag}</td>
           <td>
-            {String(c.a)} ↔ {String(c.b)}
+            {String(c.a)} ↔ {String(c.b)}
           </td>
           <td>
             <Text c="orange">Conflict</Text>
@@ -99,7 +99,7 @@ export function SyncPage() {
       {syncReport.length > 0 && (
         <Text size="sm">
           {syncReport.length} file
-          {syncReport.length > 1 ? 's' : ''} pending – siehe Tabelle.
+          {syncReport.length > 1 ? 's' : ''} pending - siehe Tabelle.
         </Text>
       )}
 
@@ -108,7 +108,7 @@ export function SyncPage() {
         <Table highlightOnHover>
           <thead>
             <tr>
-              <th>Source ↔ Dest</th>
+              <th>Source ↔ Dest</th>
               <th>Tag</th>
               <th>Change / Values</th>
               <th>Status</th>

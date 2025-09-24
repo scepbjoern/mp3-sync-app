@@ -76,7 +76,7 @@ export const useConfigStore = create<ConfigState & ConfigActions>((set, get) => 
           sourceBPath:       res.data.sourceBPath       ?? null,
           backupPath:        res.data.backupPath        ?? null,
           logFilePath:       res.data.logFilePath       ?? null,
-          logLevel:          res.data.logFilePath ? res.data.logFilePath : 'info',
+          logLevel:          typeof res.data.logLevel === 'string' ? res.data.logLevel : 'info',
           bidirectionalTags: res.data.bidirectionalTags ?? [],
           tagsToSync:        res.data.tagsToSync        ?? 'ALL',
           isLoading:         false,

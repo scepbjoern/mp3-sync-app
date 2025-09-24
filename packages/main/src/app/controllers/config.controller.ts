@@ -116,15 +116,27 @@ export class ConfigController implements OnModuleInit {
              try {
                  let requestedPath: string;
                  switch (name) {
-                     case 'userData': requestedPath = app.getPath('userData'); break;
-                     case 'logs': requestedPath = this.configService.getLogFilePath(); break;
-                     case 'backup': requestedPath = this.configService.getBackupPath(); break;
-                     case 'db': requestedPath = this.configService.getDatabasePath(); break;
-                     default:
-                         // Ensure exhaustive check with a utility function if preferred
-                         const exhaustiveCheck: never = name;
-                         throw new Error(`Unknown path name: ${exhaustiveCheck}`);
-                 }
+                    case 'userData': {
+                        requestedPath = app.getPath('userData');
+                        break;
+                    }
+                    case 'logs': {
+                        requestedPath = this.configService.getLogFilePath();
+                        break;
+                    }
+                    case 'backup': {
+                        requestedPath = this.configService.getBackupPath();
+                        break;
+                    }
+                    case 'db': {
+                        requestedPath = this.configService.getDatabasePath();
+                        break;
+                    }
+                    default: {
+                        const exhaustiveCheck: never = name;
+                        throw new Error(`Unknown path name: ${exhaustiveCheck}`);
+                    }
+                }
                  return { success: true, data: requestedPath };
              } catch (err) {
                   this.logger.error(`Error handling ${handlerName} (${name}):`, err);
@@ -178,22 +190,18 @@ export class ConfigController implements OnModuleInit {
             }
         });
 
-        // --- ADD Handler to Show Config File ---
+        // --- Handler to Show Config File ---
         ipcMain.handle('config:show-in-folder', async (): Promise<IpcResponse<void>> => {
             const handlerName = 'config:show-in-folder';
             this.logger.log(`IPC Handler: ${handlerName}`);
             try {
-                // Get the dynamically determined config file path from the service
-                // NOTE: ConfigService constructor determines configFilePath based on override or default logic
-                const configPath = this.configService['configFilePath']; // Access private prop (or add getter)
+                const configPath = this.configService.getConfigFilePath();
 
                 if (!configPath) {
                     throw new Error('Configuration file path is not set.');
                 }
 
-                this.logger.log(`Attempting to show item in folder: ${configPath}`);
-                shell.showItemInFolder(configPath); // Electron API to open folder and select file
-
+                shell.showItemInFolder(configPath);
                 return { success: true };
             } catch (err) {
                 this.logger.error(`Error handling ${handlerName}:`, err);

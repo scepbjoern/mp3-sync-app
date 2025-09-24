@@ -10,7 +10,8 @@
     "dev": "electron-forge start",
     "build": "electron-forge make",
     "postinstall": "npm run prisma:generate",
-    "prisma:generate": "prisma generate --schema=packages/main/prisma/schema.prisma"
+    "prisma:generate": "prisma generate --schema=packages/main/prisma/schema.prisma",
+    "lint": "npm run lint --workspace main && npm run lint --workspace renderer"
   },
   "dependencies": {
     "@nestjs/microservices": "^10.3.10",
