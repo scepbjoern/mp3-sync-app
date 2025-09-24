@@ -40,7 +40,13 @@ const electronAPI = {
     ipcRenderer.invoke('filesystem:scan-directory', dirPath),
 
   /* --- Dialoge ------------------------------------------ */
-  selectDirectory: () => ipcRenderer.invoke('dialog:select-directory'),
+  selectDirectory: async () => {
+    const response = await ipcRenderer.invoke('dialog:select-directory');
+    if (response?.success) {
+      return response.data ?? null;
+    }
+    throw new Error(response?.error?.message ?? 'Failed to open directory dialog');
+  },
   showConfigFileInFolder: () => ipcRenderer.invoke('dialog:show-config-file'),
 
   scanSourceFiles: () => ipcRenderer.invoke('scan:source-files'),
