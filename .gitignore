@@ -118,7 +118,6 @@ app-builds/
 # Ignore test reports and coverage output
 coverage/
 .nyc_output/
-lerna-debug.log
 junit.xml
 test-results/
 lcov.info
@@ -140,9 +139,14 @@ backups/
 # .turbo/
 # .vercel/
 
+.eslintcache
+.npmrc
+.node_repl_history
+*.tgz
+tmp/
+.temp/
+
 # Lockfiles other than pnpm's
 **/package-lock.json
 **/yarn.lock
-
-# Ignore generated Prisma client
 packages/main/src/generated
