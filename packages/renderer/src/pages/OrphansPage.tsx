@@ -187,8 +187,12 @@ export function OrphansPage() {
   // Bulk helpers
   const selectedItems = rows.filter((o, idx) => selectedKeys.has(`${o.type}|${o.mappingId ?? idx}|${o.sourceAPath ?? ''}|${o.sourceBPath ?? ''}`));
   const anySelected = selectedItems.length > 0;
-  const aPathsSelected = selectedItems.map(s => s.sourceAPath).filter((p): p is string => !!p);
-  const bPathsSelected = selectedItems.map(s => s.sourceBPath).filter((p): p is string => !!p);
+  const aPathsSelected = selectedItems
+    .filter((s) => !!s.sourceAPath && s.aExists)
+    .map((s) => s.sourceAPath!) ;
+  const bPathsSelected = selectedItems
+    .filter((s) => !!s.sourceBPath && s.bExists)
+    .map((s) => s.sourceBPath!);
   const idsSelected    = selectedItems.map(s => s.mappingId).filter((id): id is number => typeof id === 'number');
   const canBulkDeleteA = aPathsSelected.length > 0;
   const canBulkDeleteB = bPathsSelected.length > 0;
@@ -211,6 +215,8 @@ export function OrphansPage() {
     if (!canBulkDeleteA) return;
     setLoading(true); setError(null);
     try {
+      const ok = window.confirm(`Delete ${aPathsSelected.length} file(s) on A? This cannot be undone.`);
+      if (!ok) { setLoading(false); return; }
       const res = await window.electronAPI.orphansDelete(aPathsSelected);
       if (!res.success) throw new Error(res.error?.message ?? 'bulk delete A failed');
       await scan();
@@ -220,6 +226,8 @@ export function OrphansPage() {
     if (!canBulkDeleteB) return;
     setLoading(true); setError(null);
     try {
+      const ok = window.confirm(`Delete ${bPathsSelected.length} file(s) on B? This cannot be undone.`);
+      if (!ok) { setLoading(false); return; }
       const res = await window.electronAPI.orphansDelete(bPathsSelected);
       if (!res.success) throw new Error(res.error?.message ?? 'bulk delete B failed');
       await scan();
@@ -229,6 +237,8 @@ export function OrphansPage() {
     if (!canBulkUnmap) return;
     setLoading(true); setError(null);
     try {
+      const ok = window.confirm(`Unmap ${idsSelected.length} mapping(s)? Files will not be deleted.`);
+      if (!ok) { setLoading(false); return; }
       const res = await window.electronAPI.orphansUnmap(idsSelected);
       if (!res.success) throw new Error(res.error?.message ?? 'bulk unmap failed');
       await scan();
@@ -244,6 +254,8 @@ export function OrphansPage() {
       specs.push({ from: 'A', aPath: s.sourceAPath, bPath: dest });
     }
     if (specs.length === 0) return;
+    const ok = window.confirm(`Copy ${specs.length} file(s) A→B (mirror)?`);
+    if (!ok) return;
     await onCopy(specs);
   };
   const bulkCopyAtoBMapped = async () => {
@@ -254,6 +266,8 @@ export function OrphansPage() {
       specs.push({ from: 'A', aPath: s.sourceAPath, bPath: s.sourceBPath });
     }
     if (specs.length === 0) return;
+    const ok = window.confirm(`Copy ${specs.length} file(s) A→B (mapped)?`);
+    if (!ok) return;
     await onCopy(specs);
   };
   const bulkCopyBtoAMapped = async () => {
@@ -264,6 +278,8 @@ export function OrphansPage() {
       specs.push({ from: 'B', aPath: s.sourceAPath, bPath: s.sourceBPath });
     }
     if (specs.length === 0) return;
+    const ok = window.confirm(`Copy ${specs.length} file(s) B→A (mapped)?`);
+    if (!ok) return;
     await onCopy(specs);
   };
 

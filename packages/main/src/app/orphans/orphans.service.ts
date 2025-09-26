@@ -47,6 +47,8 @@ export class OrphansService {
     const bRoot = this.config.getSourceBPath();
     if (!aRoot || !bRoot) throw new Error('Both Source A and Source B must be configured.');
 
+    this.logger.log(`Scan orphans: includeNonDj=${includeNonDj}, onlyMappedAMissing=${onlyMappedAMissing}`);
+
     // DB mappings
     const mappings = await this.prisma.fileMappingState.findMany({
       select: { id: true, sourceAPath: true, sourceBPath: true },
@@ -119,15 +121,26 @@ export class OrphansService {
     }
 
     // order by type then path for stability
-    return result.sort((x, y) => {
+    const sorted = result.sort((x, y) => {
       if (x.type !== y.type) return x.type.localeCompare(y.type);
       const xp = x.sourceAPath ?? x.sourceBPath ?? '';
       const yp = y.sourceAPath ?? y.sourceBPath ?? '';
       return xp.localeCompare(yp);
     });
+    const counts: Record<string, number> = {};
+    for (const r of sorted) counts[r.type] = (counts[r.type] ?? 0) + 1;
+    this.logger.debug(
+      `Orphans scan result: total=${sorted.length} ` +
+      `UNMAPPED_A=${counts['UNMAPPED_A'] ?? 0} ` +
+      `UNMAPPED_B=${counts['UNMAPPED_B'] ?? 0} ` +
+      `MAPPED_A_MISSING=${counts['MAPPED_A_MISSING'] ?? 0} ` +
+      `MAPPED_B_MISSING=${counts['MAPPED_B_MISSING'] ?? 0}`,
+    );
+    return sorted;
   }
 
   async deleteFiles(paths: string[]): Promise<{ deleted: number; errors: { path: string; error: string }[] }> {
+    this.logger.log(`Deleting ${paths.length} file(s)`);
     let deleted = 0;
     const errors: { path: string; error: string }[] = [];
     for (const p of paths) {
@@ -138,10 +151,12 @@ export class OrphansService {
         errors.push({ path: p, error: e?.message ?? String(e) });
       }
     }
+    this.logger.log(`Delete complete: deleted=${deleted}, errors=${errors.length}`);
     return { deleted, errors };
   }
 
   async unmap(ids: number[]): Promise<{ unmapped: number; errors: { id: number; error: string }[] }> {
+    this.logger.log(`Unmapping ${ids.length} mapping(s)`);
     let unmapped = 0;
     const errors: { id: number; error: string }[] = [];
     for (const id of ids) {
@@ -152,10 +167,12 @@ export class OrphansService {
         errors.push({ id, error: e?.message ?? String(e) });
       }
     }
+    this.logger.log(`Unmap complete: unmapped=${unmapped}, errors=${errors.length}`);
     return { unmapped, errors };
   }
 
   async copy(specs: CopySpec[]): Promise<{ copied: number; createdMappings: number; errors: { aPath: string; bPath: string; error: string }[] }> {
+    this.logger.log(`Copying ${specs.length} spec(s)`);
     let copied = 0;
     let createdMappings = 0;
     const errors: { aPath: string; bPath: string; error: string }[] = [];
@@ -180,6 +197,7 @@ export class OrphansService {
       }
     }
 
+    this.logger.log(`Copy complete: copied=${copied}, createdMappings=${createdMappings}, errors=${errors.length}`);
     return { copied, createdMappings, errors };
   }
 }
