@@ -30,6 +30,8 @@ const electronAPI = {
     ipcRenderer.invoke('config:setPaths', paths),
   configSetLogLevel: (level: string) =>
     ipcRenderer.invoke('config:setLogLevel', level),
+  configSetMirrorPattern: (pattern: string) =>
+    ipcRenderer.invoke('config:setMirrorPattern', pattern),
   configSetTagsToSync: (tags: 'ALL' | string[]) =>
     ipcRenderer.invoke('config:setTagsToSync', tags),
   configSetBidirectionalTags: (tags: string[]) =>
@@ -79,6 +81,7 @@ const electronAPI = {
   orphansUnmap:  (ids: number[])  => ipcRenderer.invoke('orphans:unmap', { ids }),
   orphansCopy:   (specs: { from: 'A' | 'B'; aPath: string; bPath: string }[]) =>
     ipcRenderer.invoke('orphans:copy', { specs }),
+  orphansComputeMirror: (aPath: string) => ipcRenderer.invoke('orphans:compute-mirror', { aPath }),
 
 };
 

@@ -7,25 +7,8 @@ interface ConfigLike {
   sourceAPath: string | null;
   sourceBPath: string | null;
 }
-
-function toWin(p: string) { return p.replace(/\//g, '\\'); }
-function toNorm(p: string) { return p.replace(/\\/g, '/'); }
-
-function mirrorPath(aPath: string, aRoot: string, bRoot: string): string {
-  const aPathNorm = toNorm(aPath);
-  const aRootNorm = toNorm(aRoot);
-  const aLower = aPathNorm.toLowerCase();
-  const rootLower = aRootNorm.toLowerCase();
-  if (aLower.startsWith(rootLower)) {
-    let rel = aPathNorm.slice(aRootNorm.length);
-    if (rel.startsWith('/')) rel = rel.slice(1);
-    const dest = toWin(`${toNorm(bRoot)}/${rel}`);
-    return dest;
-  }
-  // Fallback: place under bRoot with just filename
-  const fname = aPathNorm.split('/').pop() || 'unknown.mp3';
-  return toWin(`${toNorm(bRoot)}/${fname}`);
-}
+ 
+// Mirror destination will be computed on backend from configured pattern.
 
 export function OrphansPage() {
   const [includeNonDj, setIncludeNonDj] = useState(false);
@@ -109,8 +92,8 @@ export function OrphansPage() {
 
   const onCopyMirrorAtoB = async (aPath: string) => {
     if (!cfg.sourceAPath || !cfg.sourceBPath) { setError('Configure Source A/B first'); return; }
-    const dest = mirrorPath(aPath, cfg.sourceAPath, cfg.sourceBPath);
-    await onCopy([{ from: 'A', aPath, bPath: dest }]);
+    // Send empty bPath so backend computes using mirrorPattern
+    await onCopy([{ from: 'A', aPath, bPath: '' }]);
   };
 
   const onCopyToMapped = async (aPath: string, bPath: string, from: 'A' | 'B') => {
@@ -258,8 +241,7 @@ export function OrphansPage() {
     const specs: { from: 'A'|'B'; aPath: string; bPath: string }[] = [];
     for (const s of selectedItems) {
       if (s.type !== 'UNMAPPED_A' || !s.sourceAPath) continue;
-      const dest = mirrorPath(s.sourceAPath, cfg.sourceAPath, cfg.sourceBPath);
-      specs.push({ from: 'A', aPath: s.sourceAPath, bPath: dest });
+      specs.push({ from: 'A', aPath: s.sourceAPath, bPath: '' });
     }
     if (specs.length === 0) return;
     const ok = window.confirm(`Copy ${specs.length} file(s) A→B (mirror)?`);

@@ -10,6 +10,7 @@ export interface ElectronConfigAPI {
     payload: Partial<Pick<ConfigData, 'sourceAPath' | 'sourceBPath' | 'backupPath' | 'logFilePath'>>
   ): Promise<{ success: boolean; error?: { message: string } }>;
   configSetLogLevel(level: string): Promise<{ success: boolean; error?: { message: string } }>;
+  configSetMirrorPattern(pattern: string): Promise<{ success: boolean; error?: { message: string } }>;
   configSetTagsToSync(tags: 'ALL' | string[]): Promise<{ success: boolean; error?: { message: string } }>;
   configSetBidirectionalTags(tags: string[]): Promise<{ success: boolean; error?: { message: string } }>;
 
@@ -92,6 +93,11 @@ export interface ElectronConfigAPI {
   orphansCopy(specs: { from: 'A' | 'B'; aPath: string; bPath: string }[]): Promise<{
     success: boolean;
     data?: { copied: number; createdMappings: number; errors: { aPath: string; bPath: string; error: string }[] };
+    error?: { message: string };
+  }>;
+  orphansComputeMirror(aPath: string): Promise<{
+    success: boolean;
+    data?: { dest: string };
     error?: { message: string };
   }>;
 }

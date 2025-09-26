@@ -46,6 +46,7 @@ export class ConfigController implements OnModuleInit {
                     logLevel: this.configService.getLogLevel(),
                     bidirectionalTags: this.configService.getBidirectionalTags(),
                     tagsToSync: this.configService.getTagsToSync(),
+                    mirrorPattern: this.configService.getMirrorPattern(),
                 };
                 return ipcSuccess(data);
             } catch (err) {
@@ -84,6 +85,21 @@ export class ConfigController implements OnModuleInit {
             } catch (err) {
                  this.logger.error(`Error handling ${handlerName}:`, err);
                 return ipcFailure(err, 'Failed to set log level due to unknown error');
+            }
+        });
+
+        ipcMain.handle('config:setMirrorPattern', async (_event, pattern: string): Promise<IpcResponse<void>> => {
+            const handlerName = 'config:setMirrorPattern';
+            this.logger.log(`IPC Handler: ${handlerName}`);
+            try {
+                if (typeof pattern !== 'string') {
+                    throw new Error('Pattern must be a string');
+                }
+                await this.configService.setMirrorPattern(pattern);
+                return ipcSuccess();
+            } catch (err) {
+                this.logger.error(`Error handling ${handlerName}:`, err);
+                return ipcFailure(err, 'Failed to set mirror pattern');
             }
         });
 

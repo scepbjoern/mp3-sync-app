@@ -54,5 +54,19 @@ export class OrphansController implements OnModuleInit {
         return ipcFailure(err, 'Failed to copy files');
       }
     });
+
+    ipcMain.handle('orphans:compute-mirror', async (_evt, payload: { aPath: string }): Promise<IpcResponse<{ dest: string }>> => {
+      try {
+        const aPath = payload?.aPath;
+        if (typeof aPath !== 'string' || aPath.trim().length === 0) {
+          throw new Error('aPath is required');
+        }
+        const dest = await this.svc.computeMirrorDestination(aPath);
+        return ipcSuccess({ dest });
+      } catch (err) {
+        this.logger.error('orphans:compute-mirror failed', err);
+        return ipcFailure(err, 'Failed to compute mirror destination');
+      }
+    });
   }
 }

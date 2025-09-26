@@ -24,6 +24,7 @@ export interface AppConfig {
   bidirectionalTags: string[];
   logFilePath:       string | null;
   logLevel:          string;
+  mirrorPattern:     string; // A->B copy mirror pattern
 }
 
 @Injectable()
@@ -109,6 +110,7 @@ export class ConfigService {
       bidirectionalTags: ['TKEY', 'TBPM', 'TXXX:EnergyLevel'],
       logFilePath:       null,
       logLevel:          'info',
+      mirrorPattern:     '$Left(<DJBIBLIOTHEK>,4)\\<DJBIBLIOTHEK>\\<TPE1>_[<TPOS>-]<TRCK>_<TIT2>',
     };
   }
 
@@ -184,6 +186,9 @@ export class ConfigService {
   getLogLevel(): string {
     return this.config.logLevel;
   }
+  getMirrorPattern(): string {
+    return this.config.mirrorPattern;
+  }
 
   getConfigFilePath(): string {
     return this.configFilePath;
@@ -219,6 +224,11 @@ export class ConfigService {
   }
   async setLogLevel(v: string) {
     this.config.logLevel = v;
+    await this.persist();
+  }
+  async setMirrorPattern(v: string) {
+    // Allow empty? Require string
+    this.config.mirrorPattern = typeof v === 'string' ? v : this.getDefaults().mirrorPattern;
     await this.persist();
   }
 }

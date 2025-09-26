@@ -12,6 +12,7 @@ export interface ConfigData {
   logLevel:          string;
   bidirectionalTags: string[];
   tagsToSync:        'ALL' | string[];
+  mirrorPattern:     string;
 }
 
 export interface ScanState {
@@ -34,6 +35,7 @@ export interface ConfigActions {
   setLogLevel:          (level: string)      => Promise<void>;
   setTagsToSync:        (tags: 'ALL' | string[]) => Promise<void>;
   setBidirectionalTags: (tags: string[])         => Promise<void>;
+  setMirrorPattern:     (pattern: string)        => Promise<void>;
   setError:             (message: string | null) => void;
   scanSourceA:          () => Promise<void>;
 }
@@ -53,6 +55,7 @@ const initialState: ConfigState = {
   logLevel:          'info',
   bidirectionalTags: [],
   tagsToSync:        'ALL',
+  mirrorPattern:     '',
 
   // scan state
   isScanning:    false,
@@ -79,6 +82,7 @@ export const useConfigStore = create<ConfigState & ConfigActions>((set, get) => 
           logLevel:          typeof res.data.logLevel === 'string' ? res.data.logLevel : 'info',
           bidirectionalTags: res.data.bidirectionalTags ?? [],
           tagsToSync:        res.data.tagsToSync        ?? 'ALL',
+          mirrorPattern:     typeof res.data.mirrorPattern === 'string' ? res.data.mirrorPattern : '',
           isLoading:         false,
         });
       } else {
@@ -143,6 +147,17 @@ export const useConfigStore = create<ConfigState & ConfigActions>((set, get) => 
     } catch (e: any) {
       console.error('setLogLevel error:', e);
       set({ error: e.message || 'Error saving Log Level' });
+    }
+  },
+
+  setMirrorPattern: async (pattern) => {
+    set({ mirrorPattern: pattern });
+    try {
+      const r = await window.electronAPI.configSetMirrorPattern(pattern);
+      if (!r.success) throw new Error(r.error?.message);
+    } catch (e: any) {
+      console.error('setMirrorPattern error:', e);
+      set({ error: e.message || 'Error saving Mirror Pattern' });
     }
   },
 

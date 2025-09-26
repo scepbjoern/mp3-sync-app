@@ -26,6 +26,7 @@ export function SettingsPage() {
   const logLevel          = useConfigStore((s) => s.logLevel);
   const bidirectionalTags = useConfigStore((s) => s.bidirectionalTags);
   const tagsToSync        = useConfigStore((s) => s.tagsToSync);
+  const mirrorPattern     = useConfigStore((s) => s.mirrorPattern);
 
   // ─── Actions ─────────────────────────────
   const loadConfig            = useConfigStore((s) => s.loadConfig);
@@ -36,6 +37,7 @@ export function SettingsPage() {
   const setLogLevel           = useConfigStore((s) => s.setLogLevel);
   const setTagsToSync         = useConfigStore((s) => s.setTagsToSync);
   const setBidirectionalTags  = useConfigStore((s) => s.setBidirectionalTags);
+  const setMirrorPattern      = useConfigStore((s) => s.setMirrorPattern);
   const setError              = useConfigStore((s) => s.setError);
 
   // ─── Load config on mount ─────────────────
@@ -149,6 +151,13 @@ export function SettingsPage() {
           value={bidirectionalTags}
           onChange={setBidirectionalTags}
           clearable
+        />
+
+        <TextInput
+          label="A→B Mirror Pattern"
+          description="Use placeholders like <TPE1>, <TIT2>, <TRCK>, <TPOS>, <DJBIBLIOTHEK>; optional groups [ ... ] and $Left(<TAG>,n)."
+          value={mirrorPattern}
+          onChange={(e) => setMirrorPattern(e.currentTarget.value)}
         />
 
         <Box mt="lg">
