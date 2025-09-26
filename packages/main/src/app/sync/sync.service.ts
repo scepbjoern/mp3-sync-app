@@ -7,6 +7,7 @@ import { PairingService }        from '../pairing/pairing.service';
 import { SourceFileStateService} from '../source-file-state/source-file-state.service';
 import { PrismaService }         from '../database/prisma.service';
 import { ConfigService }         from '../config/config.service';
+import { BackupCoordinatorService } from '../services/backup-coordinator.service';
 
 export interface PreviewEntry {
   sourcePath:     string;
@@ -27,6 +28,7 @@ export class SyncService {
     private state:        SourceFileStateService,
     private prisma:       PrismaService,
     private config:       ConfigService,
+    private backup:       BackupCoordinatorService,
   ) {}
 
   private getAllReadKeys(): string[] {
@@ -41,6 +43,17 @@ export class SyncService {
       'TXXX:livegesehen',
     ];
     return Array.from(new Set([...bidir, ...multi, ...commentFrames]));
+  }
+
+  private isTagAllowed(tag: string): boolean {
+    const t = this.config.getTagsToSync();
+    return t === 'ALL' || t.includes(tag);
+  }
+
+  private normDb(v: any): string | null {
+    if (v === null || v === undefined) return null;
+    if (typeof v === 'string') return v;
+    try { return JSON.stringify(v); } catch { return String(v); }
   }
 
   /** Build a preview of all sync‐able files + their tag‐changes */
@@ -76,6 +89,7 @@ export class SyncService {
       const conflicts: PreviewEntry['conflicts']      = [];
 
       for (const [tag, to] of Object.entries(transformed)) {
+        if (!this.isTagAllowed(tag)) continue;
         const from = dstTags[tag] ?? null;
         const isBi = this.config.getBidirectionalTags().includes(tag);
 
@@ -117,38 +131,119 @@ export class SyncService {
     applied:   number;
     conflicts: Array<{ source: string; tag: string; a: any; b: any }>;
   }> {
-    const preview = await this.previewSync();
+    const inLib    = await this.state.listInLibrary();
+    const mappings = await this.pairing.getMappings();
+    const mapB     = new Map(mappings.map(m => [m.sourceAPath, m.sourceBPath]));
+
     let applied   = 0;
     const conflicts: Array<{ source:string; tag:string; a:any; b:any }> = [];
-
-    for (const entry of preview) {
-      if (entry.conflicts) {
-        entry.conflicts.forEach(c => conflicts.push({ source: entry.sourcePath, ...c }));
-        continue;
-      }
-      if (!entry.pendingUpdates.length) continue;
-
-      const toWrite: Record<string, any> = {};
-      entry.pendingUpdates.forEach(({ tag, to }) => {
-        toWrite[tag] = to;
-      });
-
-      await this.tags.writeTags(entry.destPath, toWrite);
-      applied++;
-    }
-
-    // bump lastSyncTimestamp on all updated mappings
     const now = new Date();
-    await Promise.all(
-      preview
-        .filter(e => !e.conflicts && e.pendingUpdates.length)
-        .map(e =>
-          this.prisma.fileMappingState.update({
-            where: { sourceAPath: e.sourcePath },
-            data:  { lastSyncTimestamp: now },
-          })
-        )
-    );
+
+    for (const { path: src } of inLib) {
+      const dst = mapB.get(src);
+      if (!dst) continue;
+
+      const record = await this.prisma.fileMappingState.findUnique({
+        where:  { sourceAPath: src },
+        select: { id: true, lastSyncTimestamp: true },
+      });
+      const lastSyncTime = record?.lastSyncTimestamp ?? new Date(0);
+      const firstSync    = !record?.lastSyncTimestamp;
+
+      const keys   = this.getAllReadKeys();
+      const srcTags = await this.tags.readTags(src, keys);
+      const dstTags = await this.tags.readTags(dst, keys);
+      const transformed = this.transformer.transformAll({ ...srcTags });
+
+      const mtimeA = (await this.fs.getFileTimestamp(src)) || new Date(0);
+      const mtimeB = (await this.fs.getFileTimestamp(dst)) || new Date(0);
+
+      const writeToA: Record<string, any> = {};
+      const writeToB: Record<string, any> = {};
+
+      const processedTags = new Set<string>();
+
+      for (const [tag, to] of Object.entries(transformed)) {
+        if (!this.isTagAllowed(tag)) continue;
+        processedTags.add(tag);
+        const curA = srcTags[tag] ?? null;
+        const curB = dstTags[tag] ?? null;
+        const isBi = this.config.getBidirectionalTags().includes(tag);
+
+        if (isBi) {
+          if (firstSync) {
+            if (curA !== curB) conflicts.push({ source: src, tag, a: curA, b: curB });
+          } else {
+            const aChanged = mtimeA > lastSyncTime;
+            const bChanged = mtimeB > lastSyncTime;
+            if (aChanged && bChanged && curA !== curB) {
+              conflicts.push({ source: src, tag, a: curA, b: curB });
+            } else if (aChanged && curA !== curB) {
+              writeToB[tag] = to; // A -> B with transformed value
+            } else if (bChanged && curA !== curB) {
+              writeToA[tag] = curB; // B -> A wins
+            }
+          }
+        } else {
+          if (to !== curB) writeToB[tag] = to;
+        }
+      }
+
+      let wrote = false;
+      if (Object.keys(writeToB).length > 0) {
+        await this.backup.backupFile(dst);
+        await this.tags.writeTags(dst, writeToB);
+        wrote = true;
+        applied++;
+      }
+      if (Object.keys(writeToA).length > 0) {
+        await this.backup.backupFile(src);
+        await this.tags.writeTags(src, writeToA);
+        wrote = true;
+        applied++;
+      }
+
+      // Update SyncStateTag for processed tags with post-write values
+      if (record) {
+        for (const tag of processedTags) {
+          const newA = tag in writeToA ? writeToA[tag] : (srcTags[tag] ?? null);
+          const newB = tag in writeToB ? writeToB[tag] : (dstTags[tag] ?? null);
+          await this.prisma.syncStateTag.upsert({
+            where: {
+              fileMappingStateId_tagName: {
+                fileMappingStateId: record.id,
+                tagName: tag,
+              },
+            },
+            create: {
+              fileMappingStateId: record.id,
+              tagName: tag,
+              sourceAValue: this.normDb(newA),
+              sourceBValue: this.normDb(newB),
+            },
+            update: {
+              sourceAValue: this.normDb(newA),
+              sourceBValue: this.normDb(newB),
+            },
+          });
+        }
+      }
+
+      // Update mapping metadata if anything was written
+      if (wrote && record) {
+        const helper = await this.tags.readTags(dst, ['TPE1','TIT2']);
+        await this.prisma.fileMappingState.update({
+          where: { id: record.id },
+          data:  {
+            lastSyncTimestamp: now,
+            artist: helper?.TPE1 ?? null,
+            title:  helper?.TIT2 ?? null,
+            sourceALastModified: mtimeA,
+            sourceBLastModified: mtimeB,
+          },
+        });
+      }
+    }
 
     this.logger.log(`runSync applied ${applied}, conflicts ${conflicts.length}`);
     return { applied, conflicts };

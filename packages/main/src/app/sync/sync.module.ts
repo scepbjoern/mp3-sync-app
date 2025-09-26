@@ -6,6 +6,7 @@ import { Mp3TagModule } from '../services/mp3-tag.module';
 import { TagTransformerModule } from '../services/tag-transformer.module';
 import { PairingModule } from '../pairing/pairing.module';
 import { SourceFileStateModule } from '../source-file-state/source-file-state.module';
+import { BackupCoordinatorModule } from '../services/backup-coordinator.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { SourceFileStateModule } from '../source-file-state/source-file-state.mo
     TagTransformerModule,
     PairingModule,
     SourceFileStateModule,
+    BackupCoordinatorModule,
   ],
   providers: [SyncService],
   controllers: [SyncController],

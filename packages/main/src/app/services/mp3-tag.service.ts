@@ -107,84 +107,65 @@ export class Mp3TagService {
   async writeTags(filePath: string, tagsToWrite: Record<string, any>): Promise<boolean> {
     this.logger.debug(`Writing tags to: ${filePath}`, tagsToWrite);
 
-    // --- Build the tag object correctly for NodeID3.update ---
     // Initialize with potential complex tag structures that node-id3 expects
     const tagsForNodeID3: BasicNodeID3Tags = {
-        userDefinedText: [] // Initialize TXXX array
+      userDefinedText: [], // Initialize TXXX array
     };
 
     for (const key in tagsToWrite) {
-      // Ensure we only process own properties
-      if (Object.prototype.hasOwnProperty.call(tagsToWrite, key)) {
-        if (key.startsWith('TXXX:')) {
-          // Format TXXX tags correctly for node-id3
-          const description = key.substring(5);
-          const value = tagsToWrite[key];
-          // Ensure array exists before pushing
-          if (!Array.isArray(tagsForNodeID3.userDefinedText)) {
-             tagsForNodeID3.userDefinedText = [];
-          }
-          tagsForNodeID3.userDefinedText.push({ description, value: String(value) }); // Ensure value is string
-        } else if (key === 'COMM') {
-            let commentText: string | undefined;
-            // Default language to 'eng', ensure it's always a string
-            let commentLang: string = 'eng';
-        
-            if (typeof tagsToWrite[key] === 'string') {
-                // Input is just the comment text
-                commentText = tagsToWrite[key];
-            } else if (typeof tagsToWrite[key] === 'object' && tagsToWrite[key] !== null && 'text' in tagsToWrite[key]) {
-                // Input is a comment object
-                commentText = tagsToWrite[key].text;
-                // Use provided language only if it's a non-empty string, otherwise keep default 'eng'
-                commentLang = (typeof tagsToWrite[key].language === 'string' && tagsToWrite[key].language)
-                              ? tagsToWrite[key].language
-                              : 'eng';
-            }
-        
-            // Only create the comment object if we actually have text
-            if (commentText !== undefined) {
-                // Ensure the created object matches the expected { language: string; text: string; }
-                tagsForNodeID3.comment = { language: commentLang, text: commentText };
-            }
-        } else {
-            // Assign standard tags directly
-            tagsForNodeID3[key] = tagsToWrite[key];
+      if (!Object.prototype.hasOwnProperty.call(tagsToWrite, key)) continue;
+      const value = (tagsToWrite as any)[key];
+      if (value === null || value === undefined) {
+        // Do not coerce null/undefined to string "null". Skip frame entirely.
+        continue;
+      }
+
+      if (key.startsWith('TXXX:')) {
+        const description = key.substring(5);
+        if (!Array.isArray(tagsForNodeID3.userDefinedText)) {
+          tagsForNodeID3.userDefinedText = [];
         }
+        tagsForNodeID3.userDefinedText.push({ description, value: String(value) });
+      } else if (key === 'COMM') {
+        let commentText: string | undefined;
+        let commentLang = 'eng';
+        if (typeof value === 'string') {
+          commentText = value;
+        } else if (typeof value === 'object' && value !== null && 'text' in value) {
+          commentText = (value as any).text;
+          const lang = (value as any).language;
+          if (typeof lang === 'string' && lang) commentLang = lang;
+        }
+        if (commentText !== undefined) {
+          tagsForNodeID3.comment = { language: commentLang, text: commentText };
+        }
+      } else {
+        tagsForNodeID3[key] = value;
       }
     }
 
-    // Remove empty TXXX array if nothing was actually added to avoid writing empty frame
-    if (tagsForNodeID3.userDefinedText?.length === 0) {
+    // Remove empty TXXX array if nothing was added
+    if (Array.isArray(tagsForNodeID3.userDefinedText) && tagsForNodeID3.userDefinedText.length === 0) {
       delete tagsForNodeID3.userDefinedText;
     }
-    // ---------------------------------------------------------
 
     try {
       // CRITICAL ASSUMPTION: NodeID3.update preserves other tags/versions. MUST VERIFY VIA TESTING.
       const result: boolean | Error = NodeID3.update(tagsForNodeID3, filePath);
-
-      if (result instanceof Error) {
-        // If node-id3 returns an Error object on failure
-        throw result;
-      }
-
+      if (result instanceof Error) throw result;
       if (result === true) {
         this.logger.log(`Successfully wrote tags to: ${filePath}`);
         return true;
-      } else {
-        // If node-id3 returns false or anything else on failure
-        this.logger.warn(`NodeID3.update did not return true for: ${filePath}. Result: ${result}`);
-        return false;
       }
+      this.logger.warn(`NodeID3.update did not return true for: ${filePath}. Result: ${String(result)}`);
+      return false;
     } catch (error) {
-       // Handle thrown errors (including filesystem errors)
-       if (error instanceof Error && 'code' in error && (error.code === 'ENOENT' || error.code === 'EPERM' || error.code === 'EACCES')) {
-           this.logger.warn(`File system error writing tags to ${filePath}: ${error.code}`);
-       } else {
-           this.logger.error(`Error writing tags to ${filePath}`, error instanceof Error ? error.stack : error);
-       }
-       return false; // Return false on any error
+      if (error instanceof Error && 'code' in error && (error as any).code && ['ENOENT', 'EPERM', 'EACCES'].includes((error as any).code)) {
+        this.logger.warn(`File system error writing tags to ${filePath}: ${(error as any).code}`);
+      } else {
+        this.logger.error(`Error writing tags to ${filePath}`, error instanceof Error ? error.stack : error);
+      }
+      return false;
     }
   }
 }
