@@ -43,6 +43,32 @@ export interface PairingScanResult {
   unmatchedDest: string[];
 }
 
+// Mapping maintenance types
+export interface MappingRow {
+  id: number;
+  sourceAPath: string;
+  sourceBPath: string;
+  sourceAExists: boolean;
+  sourceBExists: boolean;
+}
+
+export interface UpdateMappingRequest {
+  id: number;
+  sourceAPath: string;
+  sourceBPath: string;
+}
+
+export interface UpdateMappingResultItem {
+  id: number;
+  ok: boolean;
+  error?: string;
+}
+
+export interface UpdateMappingResponse {
+  updated: number;
+  results: UpdateMappingResultItem[];
+}
+
 @Injectable()
 export class PairingService {
   private readonly logger = new Logger(PairingService.name);
@@ -323,5 +349,112 @@ export class PairingService {
       }
       destTagKeyByPath.delete(destPath);
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Mapping Maintenance (UC5)
+  // ─────────────────────────────────────────────────────────────
+
+  async getAllMappingsDetailed(): Promise<MappingRow[]> {
+    const rows = await this.prisma.fileMappingState.findMany({
+      select: { id: true, sourceAPath: true, sourceBPath: true },
+      orderBy: { id: 'asc' },
+    });
+    const result: MappingRow[] = [];
+    for (const r of rows) {
+      const [aExists, bExists] = await Promise.all([
+        this.fileSystem.fileExists(r.sourceAPath),
+        this.fileSystem.fileExists(r.sourceBPath),
+      ]);
+      result.push({
+        id: r.id,
+        sourceAPath: r.sourceAPath,
+        sourceBPath: r.sourceBPath,
+        sourceAExists: aExists,
+        sourceBExists: bExists,
+      });
+    }
+    return result;
+  }
+
+  async updatePaths(updates: UpdateMappingRequest[]): Promise<UpdateMappingResponse> {
+    const results: UpdateMappingResultItem[] = [];
+    let updated = 0;
+
+    // quick duplicate detection within payload
+    const seenA = new Map<string, number>();
+    const seenB = new Map<string, number>();
+    for (const u of updates) {
+      const err = this.validateMp3Path(u.sourceAPath) || this.validateMp3Path(u.sourceBPath);
+      if (err) {
+        results.push({ id: u.id, ok: false, error: err });
+        continue;
+      }
+      const aKey = u.sourceAPath.toLowerCase();
+      const bKey = u.sourceBPath.toLowerCase();
+      if (seenA.has(aKey)) {
+        results.push({ id: u.id, ok: false, error: 'Duplicate sourceAPath in payload' });
+        continue;
+      }
+      if (seenB.has(bKey)) {
+        results.push({ id: u.id, ok: false, error: 'Duplicate sourceBPath in payload' });
+        continue;
+      }
+      seenA.set(aKey, u.id);
+      seenB.set(bKey, u.id);
+    }
+
+    for (const u of updates) {
+      // skip ones already errored above
+      if (results.find((r) => r.id === u.id && !r.ok)) continue;
+
+      try {
+        // Ensure no conflicts in DB
+        const conflictA = await this.prisma.fileMappingState.findFirst({
+          where: { sourceAPath: u.sourceAPath, NOT: { id: u.id } },
+          select: { id: true },
+        });
+        if (conflictA) {
+          results.push({ id: u.id, ok: false, error: 'sourceAPath already mapped by another row' });
+          continue;
+        }
+
+        const conflictB = await this.prisma.fileMappingState.findFirst({
+          where: { sourceBPath: u.sourceBPath, NOT: { id: u.id } },
+          select: { id: true },
+        });
+        if (conflictB) {
+          results.push({ id: u.id, ok: false, error: 'sourceBPath already mapped by another row' });
+          continue;
+        }
+
+        await this.prisma.fileMappingState.update({
+          where: { id: u.id },
+          data: {
+            sourceAPath: u.sourceAPath,
+            sourceBPath: u.sourceBPath,
+          },
+        });
+
+        updated++;
+        results.push({ id: u.id, ok: true });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        results.push({ id: u.id, ok: false, error: message });
+      }
+    }
+
+    return { updated, results };
+  }
+
+  private validateMp3Path(pth: string): string | null {
+    // Must be absolute and end with .mp3 (case-insensitive)
+    if (!path.isAbsolute(pth)) {
+      return 'Path must be absolute';
+    }
+    if (path.extname(pth).toLowerCase() !== '.mp3') {
+      return 'Path must end with .mp3';
+    }
+    return null;
   }
 }

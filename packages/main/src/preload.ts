@@ -62,6 +62,12 @@ const electronAPI = {
   pairingStartInitialScan: (options?: { includeNonDj?: boolean }) =>
     ipcRenderer.invoke('pairing:start-initial-scan', options),
 
+  // Mapping Maintenance (UC5)
+  mappingsGetAll: () => ipcRenderer.invoke('mappings:get-all'),
+  mappingsUpdatePaths: (
+    payload: { id: number; sourceAPath: string; sourceBPath: string }[],
+  ) => ipcRenderer.invoke('mappings:update-paths', payload),
+
   previewSync:             () => ipcRenderer.invoke('sync:preview'),
   runSync:                 () => ipcRenderer.invoke('sync:run'),
 

@@ -5,6 +5,9 @@ import {
   PairingScanOptions,
   PairingScanResult,
   PairingService,
+  MappingRow,
+  UpdateMappingRequest,
+  UpdateMappingResponse,
 } from './pairing.service';
 
 interface IpcResponse<T = unknown> {
@@ -84,6 +87,30 @@ export class PairingController implements OnModuleInit {
           return { success: false, error: { message: toErrorMessage(error) } };
         }
       });
+
+    // UC5: Mapping Maintenance
+    ipcMain.handle('mappings:get-all', async (): Promise<IpcResponse<MappingRow[]>> => {
+      try {
+        const data = await this.pairing.getAllMappingsDetailed();
+        return { success: true, data };
+      } catch (error: unknown) {
+        this.logger.error('mappings:get-all error', error);
+        return { success: false, error: { message: toErrorMessage(error) } };
+      }
+    });
+
+    ipcMain.handle(
+      'mappings:update-paths',
+      async (_evt, payload: UpdateMappingRequest[]): Promise<IpcResponse<UpdateMappingResponse>> => {
+        try {
+          const data = await this.pairing.updatePaths(payload);
+          return { success: true, data };
+        } catch (error: unknown) {
+          this.logger.error('mappings:update-paths error', error);
+          return { success: false, error: { message: toErrorMessage(error) } };
+        }
+      },
+    );
 
   }
 }

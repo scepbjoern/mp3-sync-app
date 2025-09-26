@@ -40,6 +40,20 @@ export interface ElectronConfigAPI {
     error?: { message: string };
   }>;
 
+  // Mapping Maintenance (UC5)
+  mappingsGetAll(): Promise<{
+    success: boolean;
+    data?: MappingRow[];
+    error?: { message: string };
+  }>;
+  mappingsUpdatePaths(
+    payload: UpdateMappingRequest[]
+  ): Promise<{
+    success: boolean;
+    data?: UpdateMappingResponse;
+    error?: { message: string };
+  }>;
+
   previewSync(): Promise<{ success: boolean; data?: PreviewEntry[]; error?: { message: string } }>;
   runSync():     Promise<{ success: boolean; data?: { applied: number; conflicts: { source: string; tag: string; a: any; b: any }[] }; error?: { message: string } }>;
 
@@ -91,6 +105,32 @@ export interface PairingScanResult {
   suggestions: PairingSuggestion[];
   unmatchedSource: UnmatchedSourceEntry[];
   unmatchedDest: string[];
+}
+
+// UC5 types
+export interface MappingRow {
+  id: number;
+  sourceAPath: string;
+  sourceBPath: string;
+  sourceAExists: boolean;
+  sourceBExists: boolean;
+}
+
+export interface UpdateMappingRequest {
+  id: number;
+  sourceAPath: string;
+  sourceBPath: string;
+}
+
+export interface UpdateMappingResultItem {
+  id: number;
+  ok: boolean;
+  error?: string;
+}
+
+export interface UpdateMappingResponse {
+  updated: number;
+  results: UpdateMappingResultItem[];
 }
 
 declare global {
