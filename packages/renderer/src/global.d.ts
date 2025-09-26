@@ -78,8 +78,17 @@ export interface ElectronConfigAPI {
 export interface PreviewEntry {
   sourcePath:     string;
   destPath:       string;
-  pendingUpdates: Array<{ tag: string; from: any; to: any }>;
+  pendingUpdates: PendingUpdateEntry[];
   conflicts?:     Array<{ tag: string; a: any; b: any }>;
+}
+
+export type SyncDirection = 'A_TO_B' | 'B_TO_A';
+
+export interface PendingUpdateEntry {
+  tag: string;
+  from: any;
+  to: any;
+  direction: SyncDirection;
 }
 
 export type PairingMatchType = 'pattern' | 'tags';

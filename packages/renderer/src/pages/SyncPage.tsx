@@ -7,6 +7,8 @@ import {
   Table,
   ScrollArea,
   Alert,
+  Badge,
+  Box,
 } from '@mantine/core';
 import { useSyncStore } from '../store/sync.store';
 
@@ -16,6 +18,11 @@ export function SyncPage() {
   const runSync     = useSyncStore((s) => s.run);
   const clearReport = useSyncStore((s) => s.clearReport);
   const { isSyncing, syncError, syncReport } = useSyncStore();
+
+  const renderVal = (v: any) => {
+    if (v === null || v === undefined || (typeof v === 'string' && v.trim() === '')) return '∅';
+    return String(v);
+  };
 
   /* ──────────────────────────────
    * Zeilen für Tabelle vorbereiten
@@ -37,7 +44,18 @@ export function SyncPage() {
         </td>
         <td>{chg.tag}</td>
         <td>
-          {String(chg.from)} → {String(chg.to)}
+          <Group gap="xs">
+            <Badge size="xs" color={chg.direction === 'A_TO_B' ? 'blue' : 'grape'}>
+              {chg.direction === 'A_TO_B' ? 'A→B' : 'B→A'}
+            </Badge>
+            {chg.to === null && (
+              <Badge size="xs" color="red" variant="light">delete</Badge>
+            )}
+          </Group>
+          <Box mt={4}>
+            <Text size="sm" c="dimmed">{renderVal(chg.from)}</Text>
+            <Text size="sm">{renderVal(chg.to)}</Text>
+          </Box>
         </td>
         <td />
       </tr>

@@ -87,7 +87,12 @@ export class Mp3TagService {
 
         // Only add the tag to the result if we actually found a value
         if (foundValue !== undefined) {
-          requestedTags[tagIdentifier] = foundValue;
+          // Treat empty strings as non-existent to align with "delete" semantics
+          if (typeof foundValue === 'string' && foundValue.trim() === '') {
+            // skip
+          } else {
+            requestedTags[tagIdentifier] = foundValue;
+          }
         }
       }
 
@@ -107,50 +112,96 @@ export class Mp3TagService {
   async writeTags(filePath: string, tagsToWrite: Record<string, any>): Promise<boolean> {
     this.logger.debug(`Writing tags to: ${filePath}`, tagsToWrite);
 
-    // Initialize with potential complex tag structures that node-id3 expects
-    const tagsForNodeID3: BasicNodeID3Tags = {
-      userDefinedText: [], // Initialize TXXX array
-    };
+    // Collect intent: writes vs deletes
+    const txxxWrites: Record<string, string> = {};
+    const txxxDeletes = new Set<string>();
+    const otherWrites: Record<string, any> = {};
+    const otherDeletes: string[] = [];
+    let commentWrite: { language: string; text: string } | null = null;
+    let commentDelete = false;
 
     for (const key in tagsToWrite) {
       if (!Object.prototype.hasOwnProperty.call(tagsToWrite, key)) continue;
       const value = (tagsToWrite as any)[key];
-      if (value === null || value === undefined) {
-        // Do not coerce null/undefined to string "null". Skip frame entirely.
-        continue;
-      }
 
       if (key.startsWith('TXXX:')) {
         const description = key.substring(5);
-        if (!Array.isArray(tagsForNodeID3.userDefinedText)) {
-          tagsForNodeID3.userDefinedText = [];
-        }
-        tagsForNodeID3.userDefinedText.push({ description, value: String(value) });
-      } else if (key === 'COMM') {
-        let commentText: string | undefined;
-        let commentLang = 'eng';
-        if (typeof value === 'string') {
-          commentText = value;
+        if (value === null || value === undefined) txxxDeletes.add(description);
+        else txxxWrites[description] = String(value);
+        continue;
+      }
+
+      if (key === 'COMM') {
+        if (value === null || value === undefined) {
+          commentDelete = true;
+        } else if (typeof value === 'string') {
+          commentWrite = { language: 'eng', text: value };
         } else if (typeof value === 'object' && value !== null && 'text' in value) {
-          commentText = (value as any).text;
-          const lang = (value as any).language;
-          if (typeof lang === 'string' && lang) commentLang = lang;
+          const lang = typeof (value as any).language === 'string' && (value as any).language ? (value as any).language : 'eng';
+          commentWrite = { language: lang, text: (value as any).text };
         }
-        if (commentText !== undefined) {
-          tagsForNodeID3.comment = { language: commentLang, text: commentText };
+        continue;
+      }
+
+      if (value === null || value === undefined) otherDeletes.push(key);
+      else otherWrites[key] = value;
+    }
+
+    // Start building payload for update
+    const tagsForNodeID3: BasicNodeID3Tags = {};
+
+    // Merge userDefinedText (TXXX) for add/update/delete
+    if (Object.keys(txxxWrites).length > 0 || txxxDeletes.size > 0) {
+      try {
+        const current: any | boolean = NodeID3.read(filePath);
+        const currentUDT: { description: string; value: string }[] = Array.isArray((current as any)?.userDefinedText)
+          ? (current as any).userDefinedText
+          : [];
+        const nextUDT: { description: string; value: string }[] = [];
+        const seen = new Set<string>();
+        // Keep existing not deleted, and apply updates if present
+        for (const item of currentUDT) {
+          const desc = item.description ?? '';
+          if (txxxDeletes.has(desc)) continue; // drop
+          if (Object.prototype.hasOwnProperty.call(txxxWrites, desc)) {
+            nextUDT.push({ description: desc, value: String(txxxWrites[desc]) });
+            seen.add(desc);
+          } else {
+            // keep as-is
+            nextUDT.push({ description: desc, value: String(item.value ?? '') });
+            seen.add(desc);
+          }
         }
-      } else {
-        tagsForNodeID3[key] = value;
+        // Add any new writes not in existing
+        for (const [desc, val] of Object.entries(txxxWrites)) {
+          if (!seen.has(desc)) nextUDT.push({ description: desc, value: String(val) });
+        }
+        // Set final array (empty array removes TXXX frames)
+        tagsForNodeID3.userDefinedText = nextUDT;
+      } catch (e) {
+        // Fallback: write only provided txxxWrites, ignore deletes (best-effort)
+        tagsForNodeID3.userDefinedText = Object.entries(txxxWrites).map(([description, value]) => ({ description, value: String(value) }));
       }
     }
 
-    // Remove empty TXXX array if nothing was added
-    if (Array.isArray(tagsForNodeID3.userDefinedText) && tagsForNodeID3.userDefinedText.length === 0) {
-      delete tagsForNodeID3.userDefinedText;
+    // Standard frame writes
+    for (const [k, v] of Object.entries(otherWrites)) {
+      tagsForNodeID3[k] = v;
+    }
+
+    // Standard frame deletes -> write empty string (treated as deleted in our readTags)
+    for (const k of otherDeletes) {
+      tagsForNodeID3[k] = '';
+    }
+
+    // Comment
+    if (commentDelete) {
+      tagsForNodeID3.comment = { language: 'eng', text: '' };
+    } else if (commentWrite) {
+      tagsForNodeID3.comment = commentWrite;
     }
 
     try {
-      // CRITICAL ASSUMPTION: NodeID3.update preserves other tags/versions. MUST VERIFY VIA TESTING.
       const result: boolean | Error = NodeID3.update(tagsForNodeID3, filePath);
       if (result instanceof Error) throw result;
       if (result === true) {

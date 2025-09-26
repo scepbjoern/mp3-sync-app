@@ -9,10 +9,19 @@ import { PrismaService }         from '../database/prisma.service';
 import { ConfigService }         from '../config/config.service';
 import { BackupCoordinatorService } from '../services/backup-coordinator.service';
 
+export type SyncDirection = 'A_TO_B' | 'B_TO_A';
+
+export interface PendingUpdateEntry {
+  tag: string;
+  from: any;
+  to: any;
+  direction: SyncDirection;
+}
+
 export interface PreviewEntry {
   sourcePath:     string;
   destPath:       string;
-  pendingUpdates: Array<{ tag: string; from: any; to: any }>;
+  pendingUpdates: PendingUpdateEntry[];
   conflicts?:     Array<{ tag: string; a: any; b: any }>;
 }
 
@@ -79,8 +88,8 @@ export class SyncService {
       const srcTags = await this.tags.readTags(src, keys);
       const dstTags = await this.tags.readTags(dst, keys);
 
-      // ← use the existing transformAll method
-      const transformed = this.transformer.transformAll(srcTags);
+      // ← use the existing transformAll method to compute normalized A-values for one-way tags
+      const transformed = this.transformer.transformAll({ ...srcTags });
 
       const mtimeA = (await this.fs.getFileTimestamp(src)) || new Date(0);
       const mtimeB = (await this.fs.getFileTimestamp(dst)) || new Date(0);
@@ -88,28 +97,39 @@ export class SyncService {
       const changes:  PreviewEntry['pendingUpdates'] = [];
       const conflicts: PreviewEntry['conflicts']      = [];
 
-      for (const [tag, to] of Object.entries(transformed)) {
+      const relevant = new Set<string>([
+        ...Object.keys(srcTags),
+        ...Object.keys(dstTags),
+        ...Object.keys(transformed),
+      ]);
+
+      for (const tag of relevant) {
         if (!this.isTagAllowed(tag)) continue;
-        const from = dstTags[tag] ?? null;
+        const curA = srcTags[tag] ?? null;
+        const curB = dstTags[tag] ?? null;
         const isBi = this.config.getBidirectionalTags().includes(tag);
 
         if (isBi) {
           if (firstSync) {
-            if (to !== from) conflicts.push({ tag, a: to, b: from });
+            if (curA !== curB) conflicts.push({ tag, a: curA, b: curB });
           } else {
             const aChanged = mtimeA > lastSyncTime;
             const bChanged = mtimeB > lastSyncTime;
 
-            if (aChanged && bChanged && to !== from) {
-              conflicts.push({ tag, a: to, b: from });
-            } else if (aChanged && to !== from) {
-              changes.push({ tag, from, to });
-            } else if (bChanged && to !== from) {
-              changes.push({ tag, from: to, to: from });
+            if (aChanged && bChanged && curA !== curB) {
+              conflicts.push({ tag, a: curA, b: curB });
+            } else if (aChanged && curA !== curB) {
+              changes.push({ tag, from: curB, to: curA, direction: 'A_TO_B' });
+            } else if (bChanged && curA !== curB) {
+              changes.push({ tag, from: curA, to: curB, direction: 'B_TO_A' });
             }
           }
         } else {
-          if (to !== from) changes.push({ tag, from, to });
+          // one-way A->B: write transformed A value if present, otherwise raw A (can be null → delete)
+          let toVal: any = Object.prototype.hasOwnProperty.call(transformed, tag)
+            ? (transformed as any)[tag]
+            : curA;
+          if (toVal !== curB) changes.push({ tag, from: curB, to: toVal ?? null, direction: 'A_TO_B' });
         }
       }
 
@@ -163,7 +183,13 @@ export class SyncService {
 
       const processedTags = new Set<string>();
 
-      for (const [tag, to] of Object.entries(transformed)) {
+      const relevant = new Set<string>([
+        ...Object.keys(srcTags),
+        ...Object.keys(dstTags),
+        ...Object.keys(transformed),
+      ]);
+
+      for (const tag of relevant) {
         if (!this.isTagAllowed(tag)) continue;
         processedTags.add(tag);
         const curA = srcTags[tag] ?? null;
@@ -179,28 +205,30 @@ export class SyncService {
             if (aChanged && bChanged && curA !== curB) {
               conflicts.push({ source: src, tag, a: curA, b: curB });
             } else if (aChanged && curA !== curB) {
-              writeToB[tag] = to; // A -> B with transformed value
+              writeToB[tag] = curA; // raw A wins → may be null (delete)
             } else if (bChanged && curA !== curB) {
-              writeToA[tag] = curB; // B -> A wins
+              writeToA[tag] = curB; // raw B wins → may be null (delete)
             }
           }
         } else {
-          if (to !== curB) writeToB[tag] = to;
+          // one-way A->B: write transformed A value if present, otherwise raw A (can be null → delete)
+          let toVal: any = Object.prototype.hasOwnProperty.call(transformed, tag)
+            ? (transformed as any)[tag]
+            : curA;
+          if (toVal !== curB) writeToB[tag] = toVal ?? null;
         }
       }
 
-      let wrote = false;
+      let fileApplied = false;
       if (Object.keys(writeToB).length > 0) {
         await this.backup.backupFile(dst);
         await this.tags.writeTags(dst, writeToB);
-        wrote = true;
-        applied++;
+        fileApplied = true;
       }
       if (Object.keys(writeToA).length > 0) {
         await this.backup.backupFile(src);
         await this.tags.writeTags(src, writeToA);
-        wrote = true;
-        applied++;
+        fileApplied = true;
       }
 
       // Update SyncStateTag for processed tags with post-write values
@@ -230,7 +258,7 @@ export class SyncService {
       }
 
       // Update mapping metadata if anything was written
-      if (wrote && record) {
+      if (fileApplied && record) {
         const helper = await this.tags.readTags(dst, ['TPE1','TIT2']);
         await this.prisma.fileMappingState.update({
           where: { id: record.id },
