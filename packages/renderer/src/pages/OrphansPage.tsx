@@ -76,8 +76,15 @@ export function OrphansPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [includeNonDj, onlyMappedAMissing]);
 
-  const onDelete = async (path: string) => {
-    setLoading(true); setError(null);
+  const onDelete = async (side: 'A' | 'B', path: string) => {
+    setError(null);
+    const ok = window.confirm(`Delete this file on ${side}? This cannot be undone.`);
+    if (!ok) return;
+    if (side === 'A') {
+      const ok2 = window.confirm('Deleting on A is unusual. Are you 100% sure?');
+      if (!ok2) return;
+    }
+    setLoading(true);
     try {
       const res = await window.electronAPI.orphansDelete([path]);
       if (!res.success) throw new Error(res.error?.message ?? 'delete failed');
@@ -156,11 +163,11 @@ export function OrphansPage() {
             {o.type === 'UNMAPPED_A' && (
               <>
                 <Button size="xs" variant="light" onClick={() => onCopyMirrorAtoB(a)}>Copy A→B (mirror)</Button>
-                <Button size="xs" color="red" variant="light" onClick={() => onDelete(a)}>Delete A</Button>
+                <Button size="xs" color="red" variant="light" onClick={() => onDelete('A', a)}>Delete A</Button>
               </>
             )}
             {o.type === 'UNMAPPED_B' && (
-              <Button size="xs" color="red" variant="light" onClick={() => onDelete(b)}>Delete B</Button>
+              <Button size="xs" color="red" variant="light" onClick={() => onDelete('B', b)}>Delete B</Button>
             )}
             {o.type === 'MAPPED_B_MISSING' && (
               <>
@@ -186,7 +193,6 @@ export function OrphansPage() {
 
   // Bulk helpers
   const selectedItems = rows.filter((o, idx) => selectedKeys.has(`${o.type}|${o.mappingId ?? idx}|${o.sourceAPath ?? ''}|${o.sourceBPath ?? ''}`));
-  const anySelected = selectedItems.length > 0;
   const aPathsSelected = selectedItems
     .filter((s) => !!s.sourceAPath && s.aExists)
     .map((s) => s.sourceAPath!) ;
@@ -203,7 +209,7 @@ export function OrphansPage() {
 
   const selectAllChecked = rows.length > 0 && selectedItems.length === rows.length;
   const onToggleSelectAll = () => {
-    setSelectedKeys((prev) => {
+    setSelectedKeys(() => {
       if (selectAllChecked) return new Set();
       const next = new Set<string>();
       rows.forEach((o, idx) => next.add(`${o.type}|${o.mappingId ?? idx}|${o.sourceAPath ?? ''}|${o.sourceBPath ?? ''}`));
@@ -217,6 +223,8 @@ export function OrphansPage() {
     try {
       const ok = window.confirm(`Delete ${aPathsSelected.length} file(s) on A? This cannot be undone.`);
       if (!ok) { setLoading(false); return; }
+      const ok2 = window.confirm('Deleting on A is unusual. Are you 100% sure?');
+      if (!ok2) { setLoading(false); return; }
       const res = await window.electronAPI.orphansDelete(aPathsSelected);
       if (!res.success) throw new Error(res.error?.message ?? 'bulk delete A failed');
       await scan();
