@@ -10,6 +10,7 @@ import { SourceFileStateModule }  from './source-file-state/source-file-state.mo
 import { PairingModule }          from './pairing/pairing.module';
 import { SyncModule } from './sync/sync.module';
 import { BidirectionalSyncModule } from './bidirectional-sync/bidirectional-sync.module';
+import { OrphansModule } from './orphans/orphans.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { BidirectionalSyncModule } from './bidirectional-sync/bidirectional-sync
     SyncModule,
 
     BidirectionalSyncModule,
+    OrphansModule,
   ],
 })
 export class AppModule {}

@@ -73,6 +73,13 @@ const electronAPI = {
 
   syncBidirectional: (sourceAPath: string) => ipcRenderer.invoke('sync:bidirectional', sourceAPath),
 
+  // Orphans
+  orphansScan:   (options?: { includeNonDj?: boolean }) => ipcRenderer.invoke('orphans:scan', options),
+  orphansDelete: (paths: string[]) => ipcRenderer.invoke('orphans:delete', { paths }),
+  orphansUnmap:  (ids: number[])  => ipcRenderer.invoke('orphans:unmap', { ids }),
+  orphansCopy:   (specs: { from: 'A' | 'B'; aPath: string; bPath: string }[]) =>
+    ipcRenderer.invoke('orphans:copy', { specs }),
+
 };
 
 /* ─────────────────────────────────────────────────────────────

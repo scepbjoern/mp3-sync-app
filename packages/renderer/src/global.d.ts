@@ -72,6 +72,28 @@ export interface ElectronConfigAPI {
     };
     error?: { message: string };
   }>;
+
+  // Orphans
+  orphansScan(options?: { includeNonDj?: boolean }): Promise<{
+    success: boolean;
+    data?: OrphanItem[];
+    error?: { message: string };
+  }>;
+  orphansDelete(paths: string[]): Promise<{
+    success: boolean;
+    data?: { deleted: number; errors: { path: string; error: string }[] };
+    error?: { message: string };
+  }>;
+  orphansUnmap(ids: number[]): Promise<{
+    success: boolean;
+    data?: { unmapped: number; errors: { id: number; error: string }[] };
+    error?: { message: string };
+  }>;
+  orphansCopy(specs: { from: 'A' | 'B'; aPath: string; bPath: string }[]): Promise<{
+    success: boolean;
+    data?: { copied: number; createdMappings: number; errors: { aPath: string; bPath: string; error: string }[] };
+    error?: { message: string };
+  }>;
 }
 
 /** --- new shared preview‐sync type --- */
@@ -114,6 +136,19 @@ export interface PairingScanResult {
   suggestions: PairingSuggestion[];
   unmatchedSource: UnmatchedSourceEntry[];
   unmatchedDest: string[];
+}
+
+// Orphans types
+export type OrphanType = 'UNMAPPED_A' | 'UNMAPPED_B' | 'MAPPED_A_MISSING' | 'MAPPED_B_MISSING';
+
+export interface OrphanItem {
+  type: OrphanType;
+  mappingId?: number;
+  sourceAPath?: string;
+  sourceBPath?: string;
+  aExists: boolean;
+  bExists: boolean;
+  inDjLibrary?: boolean;
 }
 
 // UC5 types
