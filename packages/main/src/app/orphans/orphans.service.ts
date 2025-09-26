@@ -20,6 +20,8 @@ export interface OrphanItem {
 
 export interface OrphanScanOptions {
   includeNonDj?: boolean; // default false
+  /** If true, return ONLY rows where mapping exists but A is missing (and B exists). */
+  onlyMappedAMissing?: boolean;
 }
 
 export interface CopySpec {
@@ -40,6 +42,7 @@ export class OrphansService {
 
   async scan(options: OrphanScanOptions = {}): Promise<OrphanItem[]> {
     const includeNonDj = options.includeNonDj ?? false;
+    const onlyMappedAMissing = options.onlyMappedAMissing ?? false;
     const aRoot = this.config.getSourceAPath();
     const bRoot = this.config.getSourceBPath();
     if (!aRoot || !bRoot) throw new Error('Both Source A and Source B must be configured.');
@@ -65,41 +68,53 @@ export class OrphansService {
 
     const result: OrphanItem[] = [];
 
-    // 1) Mapped rows with missing side
-    for (const m of mappings) {
-      const aExists = aSet.has(m.sourceAPath);
-      const bExists = bSet.has(m.sourceBPath);
-      if (aExists && bExists) continue;
-      const inDj = inDjMap.get(m.sourceAPath) ?? false;
-
-      if (!aExists && bExists) {
-        // Only if showing all; DJ-filter cannot be applied (A missing)
-        if (includeNonDj) {
+    // If exclusively requesting MAPPED_A_MISSING, short-circuit and return only those
+    if (onlyMappedAMissing) {
+      for (const m of mappings) {
+        const aExists = aSet.has(m.sourceAPath);
+        const bExists = bSet.has(m.sourceBPath);
+        if (!aExists && bExists) {
+          const inDj = inDjMap.get(m.sourceAPath) ?? false;
           result.push({ type: 'MAPPED_A_MISSING', mappingId: m.id, sourceAPath: m.sourceAPath, sourceBPath: m.sourceBPath, aExists, bExists, inDjLibrary: inDj });
         }
-        continue;
       }
-      if (aExists && !bExists) {
-        if (includeNonDj || inDj) {
-          result.push({ type: 'MAPPED_B_MISSING', mappingId: m.id, sourceAPath: m.sourceAPath, sourceBPath: m.sourceBPath, aExists, bExists, inDjLibrary: inDj });
+    } else {
+      // 1) Mapped rows with missing side
+      for (const m of mappings) {
+        const aExists = aSet.has(m.sourceAPath);
+        const bExists = bSet.has(m.sourceBPath);
+        if (aExists && bExists) continue;
+        const inDj = inDjMap.get(m.sourceAPath) ?? false;
+
+        if (!aExists && bExists) {
+          // Only if showing all; DJ-filter cannot be applied (A missing)
+          if (includeNonDj) {
+            result.push({ type: 'MAPPED_A_MISSING', mappingId: m.id, sourceAPath: m.sourceAPath, sourceBPath: m.sourceBPath, aExists, bExists, inDjLibrary: inDj });
+          }
+          continue;
+        }
+        if (aExists && !bExists) {
+          if (includeNonDj || inDj) {
+            result.push({ type: 'MAPPED_B_MISSING', mappingId: m.id, sourceAPath: m.sourceAPath, sourceBPath: m.sourceBPath, aExists, bExists, inDjLibrary: inDj });
+          }
         }
       }
-    }
 
-    // 2) Unmapped files
-    // UNMAPPED_A
-    for (const aPath of aSet) {
-      if (mappedA.has(aPath)) continue;
-      const inDj = inDjMap.get(aPath) ?? false;
-      if (includeNonDj || inDj) {
-        result.push({ type: 'UNMAPPED_A', aExists: true, bExists: false, sourceAPath: aPath, inDjLibrary: inDj });
+      // 2) Unmapped files
+      // UNMAPPED_A
+      for (const aPath of aSet) {
+        if (mappedA.has(aPath)) continue;
+        const inDj = inDjMap.get(aPath) ?? false;
+        if (includeNonDj || inDj) {
+          result.push({ type: 'UNMAPPED_A', aExists: true, bExists: false, sourceAPath: aPath, inDjLibrary: inDj });
+        }
       }
-    }
-    // UNMAPPED_B
-    if (includeNonDj) {
-      for (const bPath of bSet) {
-        if (mappedB.has(bPath)) continue;
-        result.push({ type: 'UNMAPPED_B', aExists: false, bExists: true, sourceBPath: bPath });
+      // UNMAPPED_B
+      if (includeNonDj) {
+        for (const bPath of bSet) {
+          if (mappedB.has(bPath)) continue;
+          result.push({ type: 'UNMAPPED_B', aExists: false, bExists: true, sourceBPath: bPath });
+        }
       }
     }
 

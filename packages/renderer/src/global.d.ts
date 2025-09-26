@@ -74,7 +74,7 @@ export interface ElectronConfigAPI {
   }>;
 
   // Orphans
-  orphansScan(options?: { includeNonDj?: boolean }): Promise<{
+  orphansScan(options?: { includeNonDj?: boolean; onlyMappedAMissing?: boolean }): Promise<{
     success: boolean;
     data?: OrphanItem[];
     error?: { message: string };
