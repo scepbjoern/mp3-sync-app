@@ -11,6 +11,7 @@ type PathsPayload = Partial<{
   databasePath: string | null;
   backupPath: string | null;
   logFilePath: string | null;
+  playlistDirectory: string | null;
 }>;
 
 /* ─────────────────────────────────────────────────────────────
@@ -50,6 +51,7 @@ const electronAPI = {
     throw new Error(response?.error?.message ?? 'Failed to open directory dialog');
   },
   showConfigFileInFolder: () => ipcRenderer.invoke('dialog:show-config-file'),
+  openPlaylistFolder: () => ipcRenderer.invoke('config:open-playlist-folder'),
 
   scanSourceFiles: () => ipcRenderer.invoke('scan:source-files'),
   getInLibraryFiles: () => ipcRenderer.invoke('get:in-library-files'),
@@ -88,6 +90,8 @@ const electronAPI = {
     ipcRenderer.invoke('reporting:list-runs', filter),
   reportingListChanges: (runId: number, filter?: { status?: 'APPLIED' | 'CONFLICT' | 'ALL'; tagQuery?: string; pathQuery?: string; page?: number; pageSize?: number }) =>
     ipcRenderer.invoke('reporting:list-changes', { runId, filter }),
+  reportingGenerateConflictsM3U: (runId: number, options?: { source?: 'A'|'B'; includeHeader?: boolean; destDir?: string; fileName?: string }) =>
+    ipcRenderer.invoke('reporting:conflicts-m3u-generate', { runId, ...(options || {}) }),
 
 };
 

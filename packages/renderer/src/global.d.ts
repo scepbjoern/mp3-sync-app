@@ -7,7 +7,7 @@ export interface ElectronConfigAPI {
   // Config
   configGet(): Promise<{ success: boolean; data?: Partial<ConfigData>; error?: { message: string } }>;
   configSetPaths(
-    payload: Partial<Pick<ConfigData, 'sourceAPath' | 'sourceBPath' | 'backupPath' | 'logFilePath'>>
+    payload: Partial<Pick<ConfigData, 'sourceAPath' | 'sourceBPath' | 'backupPath' | 'logFilePath' | 'playlistDirectory'>>
   ): Promise<{ success: boolean; error?: { message: string } }>;
   configSetLogLevel(level: string): Promise<{ success: boolean; error?: { message: string } }>;
   configSetMirrorPattern(pattern: string): Promise<{ success: boolean; error?: { message: string } }>;
@@ -20,6 +20,7 @@ export interface ElectronConfigAPI {
   // Dialogs
   selectDirectory(): Promise<string | null>;
   showConfigFileInFolder(): Promise<void>;
+  openPlaylistFolder(): Promise<{ success: boolean; error?: { message: string } }>;
 
   // DJ-Library scan
   scanSourceFiles(): Promise<{ success: boolean; data?: { total: number; updated: number }; error?: { message: string } }>;
@@ -110,6 +111,11 @@ export interface ElectronConfigAPI {
   reportingListChanges(runId: number, filter?: { status?: 'APPLIED' | 'CONFLICT' | 'ALL'; tagQuery?: string; pathQuery?: string; page?: number; pageSize?: number }): Promise<{
     success: boolean;
     data?: { total: number; page: number; pageSize: number; rows: Array<{ id: number; createdAt: string; mappingId: number | null; sourceAPath: string; sourceBPath: string; tag: string; status: 'APPLIED' | 'CONFLICT'; direction: 'A_TO_B' | 'B_TO_A' | null; fromValue: string | null; toValue: string | null }> };
+    error?: { message: string };
+  }>;
+  reportingGenerateConflictsM3U(runId: number, options?: { source?: 'A'|'B'; includeHeader?: boolean; destDir?: string; fileName?: string }): Promise<{
+    success: boolean;
+    data?: { filePath: string; count: number };
     error?: { message: string };
   }>;
 }

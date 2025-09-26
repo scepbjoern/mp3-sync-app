@@ -19,6 +19,7 @@ interface SetPathsPayload {
     databasePath?: string | null;
     backupPath?: string | null;
     logFilePath?: string | null;
+    playlistDirectory?: string | null;
 }
 
 @Injectable() // Controllers are injectable providers
@@ -43,6 +44,7 @@ export class ConfigController implements OnModuleInit {
                     databasePath: this.configService.getDatabasePath(),
                     backupPath: this.configService.getBackupPath(),
                     logFilePath: this.configService.getLogFilePath(),
+                    playlistDirectory: this.configService.getPlaylistDirectory(),
                     logLevel: this.configService.getLogLevel(),
                     bidirectionalTags: this.configService.getBidirectionalTags(),
                     tagsToSync: this.configService.getTagsToSync(),
@@ -67,6 +69,7 @@ export class ConfigController implements OnModuleInit {
                 if (paths.databasePath !== undefined) updates.push(this.configService.setDatabasePath(assertOptionalString(paths.databasePath, 'Database path')));
                 if (paths.backupPath !== undefined) updates.push(this.configService.setBackupPath(assertOptionalString(paths.backupPath, 'Backup path')));
                 if (paths.logFilePath !== undefined) updates.push(this.configService.setLogFilePath(assertOptionalString(paths.logFilePath, 'Log file path')));
+                if (paths.playlistDirectory !== undefined) updates.push(this.configService.setPlaylistDirectory(assertOptionalString(paths.playlistDirectory, 'Playlist directory')));
                 await Promise.all(updates);
                 return ipcSuccess();
             } catch (err) {
@@ -100,6 +103,20 @@ export class ConfigController implements OnModuleInit {
             } catch (err) {
                 this.logger.error(`Error handling ${handlerName}:`, err);
                 return ipcFailure(err, 'Failed to set mirror pattern');
+            }
+        });
+
+        ipcMain.handle('config:open-playlist-folder', async (): Promise<IpcResponse<void>> => {
+            const handlerName = 'config:open-playlist-folder';
+            this.logger.log(`IPC Handler: ${handlerName}`);
+            try {
+                const playlistDir = this.configService.getPlaylistDirectory();
+                const result = await shell.openPath(playlistDir);
+                if (result) throw new Error(result);
+                return ipcSuccess();
+            } catch (err) {
+                this.logger.error(`Error handling ${handlerName}:`, err);
+                return ipcFailure(err, 'Failed to open playlist folder');
             }
         });
 

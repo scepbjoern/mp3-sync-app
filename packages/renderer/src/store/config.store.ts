@@ -13,6 +13,7 @@ export interface ConfigData {
   bidirectionalTags: string[];
   tagsToSync:        'ALL' | string[];
   mirrorPattern:     string;
+  playlistDirectory: string | null;
 }
 
 export interface ScanState {
@@ -36,6 +37,7 @@ export interface ConfigActions {
   setTagsToSync:        (tags: 'ALL' | string[]) => Promise<void>;
   setBidirectionalTags: (tags: string[])         => Promise<void>;
   setMirrorPattern:     (pattern: string)        => Promise<void>;
+  setPlaylistDirectory: (dir: string | null)     => Promise<void>;
   setError:             (message: string | null) => void;
   scanSourceA:          () => Promise<void>;
 }
@@ -56,6 +58,7 @@ const initialState: ConfigState = {
   bidirectionalTags: [],
   tagsToSync:        'ALL',
   mirrorPattern:     '',
+  playlistDirectory: null,
 
   // scan state
   isScanning:    false,
@@ -83,6 +86,7 @@ export const useConfigStore = create<ConfigState & ConfigActions>((set, get) => 
           bidirectionalTags: res.data.bidirectionalTags ?? [],
           tagsToSync:        res.data.tagsToSync        ?? 'ALL',
           mirrorPattern:     typeof res.data.mirrorPattern === 'string' ? res.data.mirrorPattern : '',
+          playlistDirectory: typeof res.data.playlistDirectory === 'string' ? res.data.playlistDirectory : null,
           isLoading:         false,
         });
       } else {
@@ -158,6 +162,23 @@ export const useConfigStore = create<ConfigState & ConfigActions>((set, get) => 
     } catch (e: any) {
       console.error('setMirrorPattern error:', e);
       set({ error: e.message || 'Error saving Mirror Pattern' });
+    }
+  },
+
+  setPlaylistDirectory: async (dir) => {
+    const safe = dir ?? null;
+    const prev = get().playlistDirectory;
+    set({ playlistDirectory: safe ?? prev });
+    try {
+      const r = await window.electronAPI.configSetPaths({ playlistDirectory: safe });
+      if (!r.success) throw new Error(r.error?.message);
+      const refresh = await window.electronAPI.configGet();
+      if (refresh.success && refresh.data?.playlistDirectory) {
+        set({ playlistDirectory: refresh.data.playlistDirectory });
+      }
+    } catch (e: any) {
+      console.error('setPlaylistDirectory error:', e);
+      set({ error: e.message || 'Error saving Playlist directory' });
     }
   },
 

@@ -22,6 +22,8 @@ export function SyncReportsPage() {
   const [changesTotal, setChangesTotal] = useState(0);
   const [changesLoading, setChangesLoading] = useState(false);
   const [changesError, setChangesError] = useState<string | null>(null);
+  const [m3uInfo, setM3uInfo] = useState<string | null>(null);
+  const [m3uError, setM3uError] = useState<string | null>(null);
 
   const loadRuns = async () => {
     setRunsLoading(true); setRunsError(null);
@@ -34,6 +36,18 @@ export function SyncReportsPage() {
       setRunsError(e?.message ?? String(e));
     } finally {
       setRunsLoading(false);
+    }
+  };
+
+  const onGenerateM3U = async (source: 'A'|'B') => {
+    setM3uInfo(null); setM3uError(null);
+    if (!selectedRunId) { setM3uError('Please select a run first.'); return; }
+    try {
+      const res = await window.electronAPI.reportingGenerateConflictsM3U(selectedRunId, { source });
+      if (!res.success || !res.data) throw new Error(res.error?.message ?? 'Failed to generate M3U');
+      setM3uInfo(`Created ${res.data.filePath} (${res.data.count} item(s))`);
+    } catch (e: any) {
+      setM3uError(e?.message ?? String(e));
     }
   };
 
@@ -101,10 +115,14 @@ export function SyncReportsPage() {
         <Title order={2}>Sync Reports</Title>
         <Group>
           <Button onClick={loadRuns} leftSection={runsLoading ? <Loader size="xs"/> : undefined} disabled={runsLoading}>Reload Runs</Button>
+          <Button variant="light" onClick={() => onGenerateM3U('A')} disabled={!selectedRunId}>M3U A (Conflicts)</Button>
+          <Button variant="light" onClick={() => onGenerateM3U('B')} disabled={!selectedRunId}>M3U B (Conflicts)</Button>
         </Group>
       </Group>
 
       {runsError && <Alert color="red" onClose={() => setRunsError(null)} withCloseButton>{runsError}</Alert>}
+      {m3uError && <Alert color="red" onClose={() => setM3uError(null)} withCloseButton>{m3uError}</Alert>}
+      {m3uInfo && <Alert color="green" onClose={() => setM3uInfo(null)} withCloseButton>{m3uInfo}</Alert>}
 
       <Group align="flex-start" grow>
         <Stack gap="xs" style={{ minWidth: 380, maxWidth: 520 }}>

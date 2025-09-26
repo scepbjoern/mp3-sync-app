@@ -27,6 +27,7 @@ export function SettingsPage() {
   const bidirectionalTags = useConfigStore((s) => s.bidirectionalTags);
   const tagsToSync        = useConfigStore((s) => s.tagsToSync);
   const mirrorPattern     = useConfigStore((s) => s.mirrorPattern);
+  const playlistDirectory = useConfigStore((s) => s.playlistDirectory);
 
   // ─── Actions ─────────────────────────────
   const loadConfig            = useConfigStore((s) => s.loadConfig);
@@ -38,6 +39,7 @@ export function SettingsPage() {
   const setTagsToSync         = useConfigStore((s) => s.setTagsToSync);
   const setBidirectionalTags  = useConfigStore((s) => s.setBidirectionalTags);
   const setMirrorPattern      = useConfigStore((s) => s.setMirrorPattern);
+  const setPlaylistDirectory  = useConfigStore((s) => s.setPlaylistDirectory);
   const setError              = useConfigStore((s) => s.setError);
 
   // ─── Load config on mount ─────────────────
@@ -65,6 +67,7 @@ export function SettingsPage() {
   const handleBrowseSourceB    = browseDir(setSourceBPath);
   const handleBrowseBackupPath = browseDir(setBackupPath);
   const handleBrowseLogPath    = browseDir(setLogFilePath);
+  const handleBrowsePlaylistDir = browseDir(setPlaylistDirectory);
 
   // ─── Sync‐Mode ───────────────────────────
   const syncMode = tagsToSync === 'ALL' ? 'ALL' : 'SPECIFIC';
@@ -117,6 +120,15 @@ export function SettingsPage() {
           rightSectionWidth={85}
         />
 
+        <TextInput
+          label="Playlist Directory"
+          placeholder="Select folder to store generated playlists"
+          readOnly
+          value={playlistDirectory ?? ''}
+          rightSection={<Button size="xs" onClick={handleBrowsePlaylistDir}>Browse…</Button>}
+          rightSectionWidth={85}
+        />
+
         <Select
           label="File Log Level"
           value={logLevel}
@@ -163,6 +175,17 @@ export function SettingsPage() {
         <Box mt="lg">
           <Anchor component="button" size="sm" onClick={() => window.electronAPI.showConfigFileInFolder()}>
             Show configuration file in Explorer
+          </Anchor>
+          <br />
+          <Anchor component="button" size="sm" onClick={async () => {
+            try {
+              const res = await window.electronAPI.openPlaylistFolder();
+              if (!res?.success) throw new Error(res?.error?.message || 'Failed to open playlist folder');
+            } catch (e: any) {
+              setError(e?.message ?? 'Failed to open playlist folder');
+            }
+          }}>
+            Open playlist folder
           </Anchor>
         </Box>
       </Stack>

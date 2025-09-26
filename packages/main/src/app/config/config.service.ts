@@ -25,6 +25,7 @@ export interface AppConfig {
   logFilePath:       string | null;
   logLevel:          string;
   mirrorPattern:     string; // A->B copy mirror pattern
+  playlistDirectory: string | null;
 }
 
 @Injectable()
@@ -34,6 +35,7 @@ export class ConfigService {
   private readonly defaultLogPath: string;
   private readonly defaultBackupPath: string;
   private readonly defaultDbPath: string;
+  private readonly defaultPlaylistPath: string;
   private readonly logger = new Logger(ConfigService.name);
   private readonly env: ConfigEnv;
 
@@ -45,6 +47,7 @@ export class ConfigService {
     this.defaultDbPath    = this.resolveDbPath(basePath);
     this.defaultBackupPath = this.resolveBackupPath(basePath);
     this.defaultLogPath   = this.resolveLogPath(basePath);
+    this.defaultPlaylistPath = this.resolvePlaylistPath(basePath);
 
     this.logger.log(`Config base path set to ${basePath}`);
     this.config = this.loadConfigFromFileSync();
@@ -93,6 +96,10 @@ export class ConfigService {
       : path.join(basePath, 'mp3-sync-app.log');
   }
 
+  private resolvePlaylistPath(basePath: string): string {
+    return path.join(basePath, 'playlists');
+  }
+
   private ensureAbsolutePath(value: string, envKey: keyof ConfigEnv | 'MP3_SYNC_CONFIG_FILE'): string {
     if (!path.isAbsolute(value)) {
       throw new Error(`${envKey} must be an absolute path. Got: ${value}`);
@@ -111,6 +118,7 @@ export class ConfigService {
       logFilePath:       null,
       logLevel:          'info',
       mirrorPattern:     '$Left(<DJBIBLIOTHEK>,4)\\<DJBIBLIOTHEK>\\<TPE1>_[<TPOS>-]<TRCK>_<TIT2>',
+      playlistDirectory: null,
     };
   }
 
@@ -171,6 +179,9 @@ export class ConfigService {
   getLogFilePath(): string {
     return this.config.logFilePath ?? this.defaultLogPath;
   }
+  getPlaylistDirectory(): string {
+    return this.config.playlistDirectory ?? this.defaultPlaylistPath;
+  }
   getSourceAPath(): string | null {
     return this.config.sourceAPath;
   }
@@ -204,6 +215,10 @@ export class ConfigService {
   }
   async setLogFilePath(v: string | null) {
     this.config.logFilePath = v;
+    await this.persist();
+  }
+  async setPlaylistDirectory(v: string | null) {
+    this.config.playlistDirectory = v;
     await this.persist();
   }
   async setSourceAPath(v: string | null) {
