@@ -100,6 +100,18 @@ export interface ElectronConfigAPI {
     data?: { dest: string };
     error?: { message: string };
   }>;
+
+  // Reporting
+  reportingListRuns(filter?: { from?: string | Date; to?: string | Date }): Promise<{
+    success: boolean;
+    data?: Array<{ id: number; startedAt: string; finishedAt: string | null; appliedCount: number; conflictCount: number }>;
+    error?: { message: string };
+  }>;
+  reportingListChanges(runId: number, filter?: { status?: 'APPLIED' | 'CONFLICT' | 'ALL'; tagQuery?: string; pathQuery?: string; page?: number; pageSize?: number }): Promise<{
+    success: boolean;
+    data?: { total: number; page: number; pageSize: number; rows: Array<{ id: number; createdAt: string; mappingId: number | null; sourceAPath: string; sourceBPath: string; tag: string; status: 'APPLIED' | 'CONFLICT'; direction: 'A_TO_B' | 'B_TO_A' | null; fromValue: string | null; toValue: string | null }> };
+    error?: { message: string };
+  }>;
 }
 
 /** --- new shared preview‐sync type --- */

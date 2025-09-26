@@ -59,3 +59,37 @@ model SourceFileState {
   @@index([inDjLibrary])
   @@index([lastModifiedAt])
 }
+
+/// Sync run summary entries (for reporting)
+model SyncRun {
+  id            Int       @id @default(autoincrement())
+  startedAt     DateTime  @default(now())
+  finishedAt    DateTime?
+  appliedCount  Int       @default(0)
+  conflictCount Int       @default(0)
+
+  changes SyncChange[]
+
+  @@index([startedAt])
+}
+
+/// Individual changes/conflicts captured during a SyncRun
+model SyncChange {
+  id          Int      @id @default(autoincrement())
+  runId       Int
+  mappingId   Int?
+  sourceAPath String
+  sourceBPath String
+  tag         String
+  direction   String?  // 'A_TO_B' | 'B_TO_A' (null for conflicts)
+  status      String   // 'APPLIED' | 'CONFLICT'
+  fromValue   String?
+  toValue     String?
+  createdAt   DateTime @default(now())
+
+  run SyncRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@index([tag])
+  @@index([status])
+}

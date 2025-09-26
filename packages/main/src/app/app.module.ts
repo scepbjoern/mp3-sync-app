@@ -11,6 +11,7 @@ import { PairingModule }          from './pairing/pairing.module';
 import { SyncModule } from './sync/sync.module';
 import { BidirectionalSyncModule } from './bidirectional-sync/bidirectional-sync.module';
 import { OrphansModule } from './orphans/orphans.module';
+import { ReportingModule } from './reporting/reporting.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { OrphansModule } from './orphans/orphans.module';
 
     BidirectionalSyncModule,
     OrphansModule,
+    ReportingModule,
   ],
 })
 export class AppModule {}

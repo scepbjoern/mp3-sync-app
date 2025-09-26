@@ -7,6 +7,7 @@ import { TagTransformerModule } from '../services/tag-transformer.module';
 import { PairingModule } from '../pairing/pairing.module';
 import { SourceFileStateModule } from '../source-file-state/source-file-state.module';
 import { BackupCoordinatorModule } from '../services/backup-coordinator.module';
+import { ReportingModule } from '../reporting/reporting.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { BackupCoordinatorModule } from '../services/backup-coordinator.module';
     PairingModule,
     SourceFileStateModule,
     BackupCoordinatorModule,
+    ReportingModule,
   ],
   providers: [SyncService],
   controllers: [SyncController],

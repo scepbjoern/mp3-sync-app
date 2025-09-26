@@ -8,6 +8,7 @@ import { SourceFileStateService} from '../source-file-state/source-file-state.se
 import { PrismaService }         from '../database/prisma.service';
 import { ConfigService }         from '../config/config.service';
 import { BackupCoordinatorService } from '../services/backup-coordinator.service';
+import { ReportingService } from '../reporting/reporting.service';
 
 export type SyncDirection = 'A_TO_B' | 'B_TO_A';
 
@@ -38,6 +39,7 @@ export class SyncService {
     private prisma:       PrismaService,
     private config:       ConfigService,
     private backup:       BackupCoordinatorService,
+    private reporting:    ReportingService,
   ) {}
 
   private getAllReadKeys(): string[] {
@@ -151,6 +153,7 @@ export class SyncService {
     applied:   number;
     conflicts: Array<{ source: string; tag: string; a: any; b: any }>;
   }> {
+    const runId = await this.reporting.startRun();
     const inLib    = await this.state.listInLibrary();
     const mappings = await this.pairing.getMappings();
     const mapB     = new Map(mappings.map(m => [m.sourceAPath, m.sourceBPath]));
@@ -180,6 +183,8 @@ export class SyncService {
 
       const writeToA: Record<string, any> = {};
       const writeToB: Record<string, any> = {};
+      const appliedItemsA: Array<{ tag: string; fromValue: any; toValue: any }> = [];
+      const appliedItemsB: Array<{ tag: string; fromValue: any; toValue: any }> = [];
 
       const processedTags = new Set<string>();
 
@@ -206,8 +211,10 @@ export class SyncService {
               conflicts.push({ source: src, tag, a: curA, b: curB });
             } else if (aChanged && curA !== curB) {
               writeToB[tag] = curA; // raw A wins → may be null (delete)
+              appliedItemsB.push({ tag, fromValue: curB, toValue: curA });
             } else if (bChanged && curA !== curB) {
               writeToA[tag] = curB; // raw B wins → may be null (delete)
+              appliedItemsA.push({ tag, fromValue: curA, toValue: curB });
             }
           }
         } else {
@@ -215,7 +222,10 @@ export class SyncService {
           let toVal: any = Object.prototype.hasOwnProperty.call(transformed, tag)
             ? (transformed as any)[tag]
             : curA;
-          if (toVal !== curB) writeToB[tag] = toVal ?? null;
+          if (toVal !== curB) {
+            writeToB[tag] = toVal ?? null;
+            appliedItemsB.push({ tag, fromValue: curB, toValue: toVal ?? null });
+          }
         }
       }
 
@@ -224,11 +234,39 @@ export class SyncService {
         await this.backup.backupFile(dst);
         await this.tags.writeTags(dst, writeToB);
         fileApplied = true;
+        applied += Object.keys(writeToB).length;
+        // Reporting applied A->B
+        for (const item of appliedItemsB) {
+          await this.reporting.recordApplied({
+            runId,
+            mappingId: record?.id ?? null,
+            sourceAPath: src,
+            sourceBPath: dst,
+            tag: item.tag,
+            direction: 'A_TO_B',
+            fromValue: this.normDb(item.fromValue),
+            toValue: this.normDb(item.toValue),
+          });
+        }
       }
       if (Object.keys(writeToA).length > 0) {
         await this.backup.backupFile(src);
         await this.tags.writeTags(src, writeToA);
         fileApplied = true;
+        applied += Object.keys(writeToA).length;
+        // Reporting applied B->A
+        for (const item of appliedItemsA) {
+          await this.reporting.recordApplied({
+            runId,
+            mappingId: record?.id ?? null,
+            sourceAPath: src,
+            sourceBPath: dst,
+            tag: item.tag,
+            direction: 'B_TO_A',
+            fromValue: this.normDb(item.fromValue),
+            toValue: this.normDb(item.toValue),
+          });
+        }
       }
 
       // Update SyncStateTag for processed tags with post-write values
@@ -271,8 +309,24 @@ export class SyncService {
           },
         });
       }
+
+      // Report conflicts for this file (if any)
+      if (conflicts.length > 0) {
+        for (const c of conflicts.filter(x => x.source === src)) {
+          await this.reporting.recordConflict({
+            runId,
+            mappingId: record?.id ?? null,
+            sourceAPath: src,
+            sourceBPath: dst,
+            tag: c.tag,
+            aValue: this.normDb(c.a),
+            bValue: this.normDb(c.b),
+          });
+        }
+      }
     }
 
+    await this.reporting.finishRun(runId, applied, conflicts.length);
     this.logger.log(`runSync applied ${applied}, conflicts ${conflicts.length}`);
     return { applied, conflicts };
   }

@@ -83,6 +83,12 @@ const electronAPI = {
     ipcRenderer.invoke('orphans:copy', { specs }),
   orphansComputeMirror: (aPath: string) => ipcRenderer.invoke('orphans:compute-mirror', { aPath }),
 
+  // Reporting
+  reportingListRuns: (filter?: { from?: string | Date; to?: string | Date }) =>
+    ipcRenderer.invoke('reporting:list-runs', filter),
+  reportingListChanges: (runId: number, filter?: { status?: 'APPLIED' | 'CONFLICT' | 'ALL'; tagQuery?: string; pathQuery?: string; page?: number; pageSize?: number }) =>
+    ipcRenderer.invoke('reporting:list-changes', { runId, filter }),
+
 };
 
 /* ─────────────────────────────────────────────────────────────
