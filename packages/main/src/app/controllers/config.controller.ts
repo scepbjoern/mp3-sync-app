@@ -1,6 +1,6 @@
 // packages/main/src/app/controllers/config.controller.ts
 import { Controller, Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { ipcMain, dialog, app, shell } from 'electron'; // Import Electron modules
+import { ipcMain, app, shell } from 'electron'; // Import Electron modules
 import path from 'node:path';
 import { ConfigService, AppConfig } from '../config/config.service'; // Import ConfigService and interface
 import {
@@ -57,12 +57,10 @@ export class ConfigController implements OnModuleInit {
             }
         });
 
-        ipcMain.handle('config:setPaths', async (_event, paths: SetPathsPayload): Promise<IpcResponse<void>> => {
-            const handlerName = 'config:setPaths';
+        const handleSetPaths = async (paths: SetPathsPayload): Promise<IpcResponse<void>> => {
+            const handlerName = 'config:set-paths';
             this.logger.log(`IPC Handler: ${handlerName}`, paths);
             try {
-                // Update only the paths provided in the payload
-                // Using Promise.all to run saves potentially concurrently (though saveConfig is likely sequential)
                 const updates: Promise<void>[] = [];
                 if (paths.sourceAPath !== undefined) updates.push(this.configService.setSourceAPath(assertOptionalString(paths.sourceAPath, 'Source A path')));
                 if (paths.sourceBPath !== undefined) updates.push(this.configService.setSourceBPath(assertOptionalString(paths.sourceBPath, 'Source B path')));
@@ -76,23 +74,26 @@ export class ConfigController implements OnModuleInit {
                 this.logger.error(`Error handling ${handlerName}:`, err);
                 return ipcFailure(err, 'Failed to set paths due to unknown error');
             }
-        });
+        };
+        // Kebab-case only
+        ipcMain.handle('config:set-paths', async (_event, paths: SetPathsPayload) => handleSetPaths(paths));
 
-        ipcMain.handle('config:setLogLevel', async (_event, level: string): Promise<IpcResponse<void>> => {
-            const handlerName = 'config:setLogLevel';
+        const handleSetLogLevel = async (level: string): Promise<IpcResponse<void>> => {
+            const handlerName = 'config:set-log-level';
             this.logger.log(`IPC Handler: ${handlerName}: ${level}`);
             try {
                 const safeLevel = assertEnum(level, ['error', 'warn', 'info', 'verbose', 'debug'], 'Log level');
                 await this.configService.setLogLevel(safeLevel);
                 return ipcSuccess();
             } catch (err) {
-                 this.logger.error(`Error handling ${handlerName}:`, err);
+                this.logger.error(`Error handling ${handlerName}:`, err);
                 return ipcFailure(err, 'Failed to set log level due to unknown error');
             }
-        });
+        };
+        ipcMain.handle('config:set-log-level', async (_e, level: string) => handleSetLogLevel(level));
 
-        ipcMain.handle('config:setMirrorPattern', async (_event, pattern: string): Promise<IpcResponse<void>> => {
-            const handlerName = 'config:setMirrorPattern';
+        const handleSetMirrorPattern = async (pattern: string): Promise<IpcResponse<void>> => {
+            const handlerName = 'config:set-mirror-pattern';
             this.logger.log(`IPC Handler: ${handlerName}`);
             try {
                 if (typeof pattern !== 'string') {
@@ -104,7 +105,8 @@ export class ConfigController implements OnModuleInit {
                 this.logger.error(`Error handling ${handlerName}:`, err);
                 return ipcFailure(err, 'Failed to set mirror pattern');
             }
-        });
+        };
+        ipcMain.handle('config:set-mirror-pattern', async (_e, pattern: string) => handleSetMirrorPattern(pattern));
 
         ipcMain.handle('config:open-playlist-folder', async (): Promise<IpcResponse<void>> => {
             const handlerName = 'config:open-playlist-folder';
@@ -120,22 +122,7 @@ export class ConfigController implements OnModuleInit {
             }
         });
 
-        ipcMain.handle('dialog:selectDirectory', async (): Promise<IpcResponse<string | null>> => {
-            const handlerName = 'dialog:selectDirectory';
-            this.logger.log(`IPC Handler: ${handlerName}`);
-            try {
-                // We need access to the BrowserWindow to make the dialog modal
-                // For now, it will open non-modally. Refine later if needed.
-                const result = await dialog.showOpenDialog({ properties: ['openDirectory'] });
-                if (result.canceled || result.filePaths.length === 0) {
-                    return ipcSuccess(null);
-                }
-                return ipcSuccess(result.filePaths[0]); // Return selected path
-            } catch (err) {
-                this.logger.error(`Error handling ${handlerName}:`, err);
-                return ipcFailure(err, 'Failed to show directory dialog due to unknown error');
-            }
-        });
+        // Removed duplicate 'dialog:selectDirectory' in favor of FileSystemController 'dialog:select-directory'.
 
          ipcMain.handle('app:get-path', async (_event, name: 'userData' | 'logs' | 'backup' | 'db' | 'config'): Promise<IpcResponse<string>> => {
              const handlerName = 'app:get-path';
@@ -187,8 +174,8 @@ export class ConfigController implements OnModuleInit {
              }
         });
 
-        ipcMain.handle('config:setTagsToSync', async (_event, tags: 'ALL' | string[]): Promise<IpcResponse<void>> => {
-            const handlerName = 'config:setTagsToSync';
+        const handleSetTagsToSync = async (tags: 'ALL' | string[]): Promise<IpcResponse<void>> => {
+            const handlerName = 'config:set-tags-to-sync';
             this.logger.log(`IPC Handler: ${handlerName}`, tags);
             try {
                 const safeTags = Array.isArray(tags) ? assertStringArray(tags, 'Tags to sync') : tags;
@@ -198,10 +185,11 @@ export class ConfigController implements OnModuleInit {
                 this.logger.error(`Error handling ${handlerName}:`, err);
                 return ipcFailure(err, 'Failed to set tags to sync');
             }
-        });
+        };
+        ipcMain.handle('config:set-tags-to-sync', async (_e, tags: 'ALL' | string[]) => handleSetTagsToSync(tags));
     
-        ipcMain.handle('config:setBidirectionalTags', async (_event, tags: string[]): Promise<IpcResponse<void>> => {
-            const handlerName = 'config:setBidirectionalTags';
+        const handleSetBidirectionalTags = async (tags: string[]): Promise<IpcResponse<void>> => {
+            const handlerName = 'config:set-bidirectional-tags';
             this.logger.log(`IPC Handler: ${handlerName}`, tags);
             try {
                 const safeTags = assertStringArray(tags, 'Bidirectional tags');
@@ -211,7 +199,8 @@ export class ConfigController implements OnModuleInit {
                 this.logger.error(`Error handling ${handlerName}:`, err);
                 return ipcFailure(err, 'Failed to set bidirectional tags');
             }
-        });
+        };
+        ipcMain.handle('config:set-bidirectional-tags', async (_e, tags: string[]) => handleSetBidirectionalTags(tags));
 
         // --- Handler to Show Config File ---
         ipcMain.handle('config:show-in-folder', async (): Promise<IpcResponse<void>> => {

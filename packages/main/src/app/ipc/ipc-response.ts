@@ -80,3 +80,19 @@ export const assertEnum = <T extends string>(
   }
   return value as T;
 };
+
+// Serialize values for IPC transport: convert Date objects to ISO strings
+export const serializeForIpc = <T>(value: T): T extends Date ? string : any => {
+  const seen = new WeakSet();
+  const recur = (v: any): any => {
+    if (v instanceof Date) return v.toISOString();
+    if (v === null || typeof v !== 'object') return v;
+    if (seen.has(v)) return null; // break cycles defensively
+    seen.add(v);
+    if (Array.isArray(v)) return v.map(recur);
+    const out: Record<string, any> = {};
+    for (const [k, val] of Object.entries(v)) out[k] = recur(val);
+    return out;
+  };
+  return recur(value);
+};

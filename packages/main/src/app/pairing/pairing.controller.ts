@@ -9,12 +9,7 @@ import {
   UpdateMappingRequest,
   UpdateMappingResponse,
 } from './pairing.service';
-
-interface IpcResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: { message: string };
-}
+import { IpcResponse, ipcSuccess, ipcFailure } from '../ipc/ipc-response';
 
 type PairingEntry = {
   sourceAPath: string;
@@ -42,10 +37,10 @@ export class PairingController implements OnModuleInit {
         this.logger.log(`Initial pairing scan requested (includeNonDj=${options.includeNonDj ?? false})`);
         try {
           const result = await this.pairing.initialScan(options);
-          return { success: true, data: result };
+          return ipcSuccess(result);
         } catch (error: unknown) {
           this.logger.error('pairing:start-initial-scan error', error);
-          return { success: false, error: { message: toErrorMessage(error) } };
+          return ipcFailure(error, toErrorMessage(error));
         }
       },
     );
@@ -56,10 +51,10 @@ export class PairingController implements OnModuleInit {
         this.logger.log(`Saving ${entries.length} mappings…`);
         try {
           const count = await this.pairing.upsertMappings(entries);
-          return { success: true, data: { count } };
+          return ipcSuccess({ count });
         } catch (error: unknown) {
           this.logger.error('pairing:save-mappings error', error);
-          return { success: false, error: { message: toErrorMessage(error) } };
+          return ipcFailure(error, toErrorMessage(error));
         }
       },
     );
@@ -70,32 +65,32 @@ export class PairingController implements OnModuleInit {
         this.logger.log(`Submit decisions: ${entries.length} entries…`);
         try {
           const count = await this.pairing.upsertMappings(entries);
-          return { success: true, data: { count } };
+          return ipcSuccess({ count });
         } catch (error: unknown) {
           this.logger.error('pairing:submit-decisions error', error);
-          return { success: false, error: { message: toErrorMessage(error) } };
+          return ipcFailure(error, toErrorMessage(error));
         }
       },
     );
 
     ipcMain.handle('pairing:get-mappings', async (): Promise<IpcResponse<PairingEntry[]>> => {
-        try {
-          const mappings = await this.pairing.getMappings();
-          return { success: true, data: mappings };
-        } catch (error: unknown) {
-          this.logger.error('Error in pairing:get-mappings', error);
-          return { success: false, error: { message: toErrorMessage(error) } };
-        }
-      });
+      try {
+        const mappings = await this.pairing.getMappings();
+        return ipcSuccess(mappings);
+      } catch (error: unknown) {
+        this.logger.error('Error in pairing:get-mappings', error);
+        return ipcFailure(error, toErrorMessage(error));
+      }
+    });
 
     // UC5: Mapping Maintenance
     ipcMain.handle('mappings:get-all', async (): Promise<IpcResponse<MappingRow[]>> => {
       try {
         const data = await this.pairing.getAllMappingsDetailed();
-        return { success: true, data };
+        return ipcSuccess(data);
       } catch (error: unknown) {
         this.logger.error('mappings:get-all error', error);
-        return { success: false, error: { message: toErrorMessage(error) } };
+        return ipcFailure(error, toErrorMessage(error));
       }
     });
 
@@ -104,10 +99,10 @@ export class PairingController implements OnModuleInit {
       async (_evt, payload: UpdateMappingRequest[]): Promise<IpcResponse<UpdateMappingResponse>> => {
         try {
           const data = await this.pairing.updatePaths(payload);
-          return { success: true, data };
+          return ipcSuccess(data);
         } catch (error: unknown) {
           this.logger.error('mappings:update-paths error', error);
-          return { success: false, error: { message: toErrorMessage(error) } };
+          return ipcFailure(error, toErrorMessage(error));
         }
       },
     );

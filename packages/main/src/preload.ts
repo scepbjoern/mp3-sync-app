@@ -28,15 +28,15 @@ const electronAPI = {
   /* --- Konfiguration ------------------------------------ */
   configGet: () => ipcRenderer.invoke('config:get'),
   configSetPaths: (paths: PathsPayload) =>
-    ipcRenderer.invoke('config:setPaths', paths),
+    ipcRenderer.invoke('config:set-paths', paths),
   configSetLogLevel: (level: string) =>
-    ipcRenderer.invoke('config:setLogLevel', level),
+    ipcRenderer.invoke('config:set-log-level', level),
   configSetMirrorPattern: (pattern: string) =>
-    ipcRenderer.invoke('config:setMirrorPattern', pattern),
+    ipcRenderer.invoke('config:set-mirror-pattern', pattern),
   configSetTagsToSync: (tags: 'ALL' | string[]) =>
-    ipcRenderer.invoke('config:setTagsToSync', tags),
+    ipcRenderer.invoke('config:set-tags-to-sync', tags),
   configSetBidirectionalTags: (tags: string[]) =>
-    ipcRenderer.invoke('config:setBidirectionalTags', tags),
+    ipcRenderer.invoke('config:set-bidirectional-tags', tags),
 
   /* --- Dateisystem -------------------------------------- */
   scanDirectory: (dirPath: string) =>

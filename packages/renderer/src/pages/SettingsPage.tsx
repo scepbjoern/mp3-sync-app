@@ -133,7 +133,7 @@ export function SettingsPage() {
           label="File Log Level"
           value={logLevel}
           onChange={(v) => v && setLogLevel(v)}
-          data={['error', 'warn', 'info', 'debug', 'silly']}
+          data={['error', 'warn', 'info', 'verbose', 'debug']}
           allowDeselect={false}
         />
 

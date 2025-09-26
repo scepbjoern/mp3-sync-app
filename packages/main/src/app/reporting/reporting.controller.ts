@@ -1,7 +1,7 @@
 // packages/main/src/app/reporting/reporting.controller.ts
 import { Controller, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ipcMain } from 'electron';
-import { ipcSuccess, ipcFailure, IpcResponse } from '../ipc/ipc-response';
+import { ipcSuccess, ipcFailure, IpcResponse, serializeForIpc } from '../ipc/ipc-response';
 import { ReportingService, ListRunsFilter, RunChangeFilter } from './reporting.service';
 import { M3UPlaylistService } from './m3u-playlist.service';
 
@@ -21,7 +21,7 @@ export class ReportingController implements OnModuleInit {
           from: filter?.from ? new Date(filter.from) : undefined,
           to: filter?.to ? new Date(filter.to) : undefined,
         });
-        return ipcSuccess(data);
+        return ipcSuccess(serializeForIpc(data));
       } catch (err) {
         this.logger.error('reporting:list-runs failed', err);
         return ipcFailure(err, 'Failed to list sync runs');
@@ -34,7 +34,7 @@ export class ReportingController implements OnModuleInit {
           throw new Error('runId is required');
         }
         const data = await this.reporting.getRunChanges(payload.runId, payload.filter ?? {});
-        return ipcSuccess(data);
+        return ipcSuccess(serializeForIpc(data));
       } catch (err) {
         this.logger.error('reporting:list-changes failed', err);
         return ipcFailure(err, 'Failed to list run changes');
