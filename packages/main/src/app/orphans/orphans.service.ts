@@ -244,26 +244,27 @@ export class OrphansService {
       return base.substring(0, Math.max(0, n));
     });
 
-    // Replace placeholders <TAG>
-    expanded = expanded.replace(/<([^>]+)>/g, (_m, tagName: string) => {
-      return valueByName.get(tagName) ?? '';
-    });
-
     // Handle optional groups [ ... ]
     expanded = expanded.replace(/\[([^\]]+)\]/g, (_m, inner: string) => {
       // Determine if this group should be kept: if any placeholder within had non-empty value
       const placeholders = Array.from(inner.matchAll(/<([^>]+)>/g)).map((mm) => mm[1]);
+      const replacedInner = inner.replace(/<([^>]+)>/g, (_mm, tagName: string) => valueByName.get(tagName) ?? '');
       let keep = false;
       if (placeholders.length === 0) {
         // If no placeholders, keep if inner has any non-whitespace character
-        keep = inner.trim().length > 0;
+        keep = replacedInner.trim().length > 0;
       } else {
         for (const p of placeholders) {
           const v = valueByName.get(p) ?? '';
           if (v !== '') { keep = true; break; }
         }
       }
-      return keep ? inner : '';
+      return keep ? replacedInner : '';
+    });
+
+    // Replace remaining placeholders <TAG>
+    expanded = expanded.replace(/<([^>]+)>/g, (_m, tagName: string) => {
+      return valueByName.get(tagName) ?? '';
     });
 
     // Normalize separators to win32 and split
