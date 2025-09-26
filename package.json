@@ -1,7 +1,8 @@
 {
   "name": "mp3-sync-app",
-  "version": "0.1.0",
-  "main": ".webpack/main/index.js",
+  "productName": "MP3 Sync App",
+  "version": "0.1.6",
+  "main": ".webpack/main",
   "private": true,
   "workspaces": [
     "packages/*"
@@ -10,7 +11,8 @@
     "dev": "electron-forge start",
     "db:sync": "pwsh ./sync-db.ps1",
     "build": "electron-forge make",
-    "postinstall": "npm run prisma:generate",
+    "make:win": "electron-forge make --platform=win32",
+    "postinstall": "node scripts/runtime-deps.js && npm run prisma:generate",
     "prisma:generate": "prisma generate --schema=packages/main/prisma/schema.prisma",
     "lint": "npm run lint --workspace main && npm run lint --workspace renderer"
   },
@@ -22,6 +24,7 @@
     "@electron-forge/cli": "^7.4.0",
     "@electron-forge/maker-squirrel": "^7.4.0",
     "@electron-forge/maker-zip": "^7.4.0",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.4.0",
     "@electron-forge/plugin-webpack": "^7.4.0",
     "@prisma/client": "^6.16.2",
     "@types/node": "^20.14.15",

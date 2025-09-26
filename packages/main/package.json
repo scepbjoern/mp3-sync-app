@@ -19,6 +19,9 @@
     "@nestjs/core": "^11.1.0",
     "@nestjs/platform-express": "^11.1.0",
     "@prisma/client": "^6.7.0",
+    "tslib": "^2.6.3",
+    "uid": "^2.0.2",
+    "iterare": "^1.2.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "electron-log": "^5.3.4",
@@ -26,7 +29,13 @@
     "main": "file:",
     "node-id3": "^0.2.9",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "validator": "^13.11.0",
+    "libphonenumber-js": "^1.10.64",
+    "iconv-lite": "^0.6.3",
+    "safer-buffer": "^2.1.2",
+    "debug": "^4.3.6",
+    "fast-safe-stringify": "^2.1.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
